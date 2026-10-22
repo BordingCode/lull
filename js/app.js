@@ -27,8 +27,8 @@ function ageLabel(now = Date.now()) {
   const b = band(birthMs(), now);
   let main;
   if (d < 14) main = `${d} day${d === 1 ? '' : 's'} old`;
-  else if (d < 120) main = `${Math.round(d / 7)} weeks old`;
-  else main = `${Math.floor(d / 30.44)} months old`;
+  else if (d < 183) main = `${Math.round(d / 7)} weeks old`;   // babies are counted in weeks to 6 months
+  else main = `${Math.round(d / 30.44)} months old`;
   return `${main} · ${b.label}`;
 }
 

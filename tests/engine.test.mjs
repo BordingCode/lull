@@ -19,7 +19,7 @@ const sleep = (startH, startM, endH, endM, dayOffset = 0, endOffset = 0) => ({
 test('age bands map to the right label', () => {
   const birth = T - 150 * DAY;
   assert.equal(ageDays(birth, T), 150);
-  assert.equal(band(birth, T).label, '5–6 months');
+  assert.equal(band(birth, T).label, '20–24 weeks');
   assert.equal(band(T - 10 * DAY, T).label, '0–4 weeks');
   assert.equal(band(T - 900 * DAY, T).label, '2 years+');
 });
@@ -145,7 +145,7 @@ test('no logs at all: still gives the age guidance, no crash', () => {
   assert.equal(p.hasData, false);
   assert.equal(p.state, 'awake');
   assert.equal(p.awakeSince, null);
-  assert.equal(p.band.label, '1–2 months');
+  assert.equal(p.band.label, '4–8 weeks');
   assert.equal(lastWakeAt([]), null);
 });
 

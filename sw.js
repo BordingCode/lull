@@ -1,14 +1,14 @@
 // ===== Lull service worker =====
 // Bump CACHE (and the ?v= numbers in index.html) whenever a shell file changes,
 // or phones keep serving the old app.
-const CACHE = 'lull-v10';
+const CACHE = 'lull-v11';
 const SHELL = [
   './', './index.html',
-  './css/style.css?v=10',
-  './js/app.js?v=10', './js/store.js', './js/predict.js', './js/science.js',
+  './css/style.css?v=11',
+  './js/app.js?v=11', './js/store.js', './js/predict.js', './js/science.js',
   './js/stats.js', './js/util.js', './js/charts.js', './js/sheets.js',
   './js/sounds.js', './js/notify.js',
-  './manifest.json?v=10',
+  './manifest.json?v=11',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable.png',
 ];
 
