@@ -9,6 +9,12 @@ Live: https://bordingcode.github.io/lull/
 
 Modelled on the app *Luli*, with everything unlocked and no subscription.
 
+<p align="center">
+  <img src="docs/shots/17-final-home.png" width="260" alt="Home screen: sleep button, next-sleep prediction, quick log and today's 24-hour bar">
+  <img src="docs/shots/07-patterns.png" width="260" alt="Patterns: one 24-hour bar per day for 14 days">
+  <img src="docs/shots/12-nightmode.png" width="260" alt="Night mode: dim warm amber on black">
+</p>
+
 ## Screens
 - **Home** — giant sleep button (tap asleep / tap awake) with a progress ring,
   a live "awake for 1h 12m" counter, quick-log buttons for breast, bottle,
