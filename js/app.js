@@ -1,13 +1,13 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=13';
-import * as sheets from './sheets.js?v=13';
-import * as sounds from './sounds.js?v=13';
-import * as notify from './notify.js?v=13';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=13';
-import { band, ageDays, BANDS } from './science.js?v=13';
-import { daySummary, lastDays, averages } from './stats.js?v=13';
-import { timeline, axis24, meter, columns, esc } from './charts.js?v=13';
-import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=13';
+import * as store from './store.js?v=15';
+import * as sheets from './sheets.js?v=15';
+import * as sounds from './sounds.js?v=15';
+import * as notify from './notify.js?v=15';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=15';
+import { band, ageDays, BANDS } from './science.js?v=15';
+import { daySummary, lastDays, averages } from './stats.js?v=15';
+import { timeline, axis24, meter, columns, esc } from './charts.js?v=15';
+import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=15';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -92,16 +92,30 @@ function homeScreen() {
       <div class="when"><b>${dur(lo)}–${dur(hi)}</b>
       <div class="sub">typical awake window at ${esc(p.band.label)} — log one sleep and Lull starts predicting</div></div>
       <span class="pill">Age guide</span></div>`;
-  } else {
-    const label = p.isBedtime ? 'Bedtime' : p.nightWake ? 'Back to sleep' : 'Next nap';
-    const cls = p.status === 'past' ? 'warn' : p.status === 'window' ? 'good' : '';
-    const statusText = p.status === 'past'
-                       ? (p.nightWake ? 'settling is taking a while' : 'window has passed')
-                     : p.status === 'window' ? 'in the window now' : relative(p.nextSleepAt, now);
+  } else if (p.awakeMin > 7 * 60) {
+    // Nobody is awake for seven hours at this age: the log has a gap, so stop
+    // pretending to predict and say what is actually known.
     pred = `<div class="card predict">
       <div class="when">
-        <b>${label} ~${clock(p.nextSleepAt)}</b>
-        <div class="sub">${statusText} · window ${clock(p.nextSleepRange[0])}–${clock(p.nextSleepRange[1])}</div>
+        <b>Gap in the log</b>
+        <div class="sub">Last logged sleep ended at ${clock(p.awakeSince)}, ${dur(p.awakeMin)} ago.
+        Tap the button when ${esc(babyName())} goes down, or add the missing sleep in the Log.</div>
+      </div>
+      <span class="pill warn">Catch up</span></div>`;
+  } else {
+    const overdue = p.status === 'past';
+    const label = overdue ? (p.nightWake ? 'Still awake' : 'Nap overdue')
+                : p.isBedtime ? 'Bedtime' : p.nightWake ? 'Back to sleep' : 'Next nap';
+    const cls = overdue ? 'warn' : p.status === 'window' ? 'good' : '';
+    const head = overdue ? label : `${label} ~${clock(p.nextSleepAt)}`;
+    const statusText = overdue
+        ? `${p.nightWake ? 'settling is taking a while' : `past the usual window by ${dur(-p.minutesLeft)}`} · expected ~${clock(p.nextSleepAt)}`
+      : p.status === 'window' ? `in the window now · window ${clock(p.nextSleepRange[0])}–${clock(p.nextSleepRange[1])}`
+      : `${relative(p.nextSleepAt, now)} · window ${clock(p.nextSleepRange[0])}–${clock(p.nextSleepRange[1])}`;
+    pred = `<div class="card predict">
+      <div class="when">
+        <b>${head}</b>
+        <div class="sub">${statusText}</div>
       </div>
       <span class="pill ${cls}">${p.nightWake ? 'Night' : p.confidence === 'high' ? 'Learned' : p.confidence === 'medium' ? 'Learning' : 'Age-based'}</span>
     </div>`;
@@ -447,9 +461,10 @@ function render() {
     tab === 'log' ? logScreen() :
     tab === 'patterns' ? patternsScreen() : soundsScreen()}</div>`;
   screen.scrollTop = keepScroll;
-  document.querySelectorAll('#tabs button').forEach(b =>
-    b.toggleAttribute('aria-current', b.dataset.tab === tab) ||
-    (b.dataset.tab === tab ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+  document.querySelectorAll('#tabs button').forEach(b => {
+    if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
   wireScreen();
   armReminders();
 }
