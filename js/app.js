@@ -1,13 +1,13 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js';
-import * as sheets from './sheets.js';
-import * as sounds from './sounds.js';
-import * as notify from './notify.js';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js';
-import { band, ageDays, BANDS } from './science.js';
-import { daySummary, lastDays, averages } from './stats.js';
-import { timeline, axis24, meter, columns, esc } from './charts.js';
-import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js';
+import * as store from './store.js?v=13';
+import * as sheets from './sheets.js?v=13';
+import * as sounds from './sounds.js?v=13';
+import * as notify from './notify.js?v=13';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=13';
+import { band, ageDays, BANDS } from './science.js?v=13';
+import { daySummary, lastDays, averages } from './stats.js?v=13';
+import { timeline, axis24, meter, columns, esc } from './charts.js?v=13';
+import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=13';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';

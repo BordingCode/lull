@@ -3,8 +3,8 @@
 // sleep that falls between 19:00 and 07:00 — the rest counts as day sleep, so
 // a long nap that bleeds into the evening is split honestly instead of guessed.
 
-import { MIN, DAY, startOfDay, overlapMin } from './util.js';
-import { isNightSleep } from './predict.js';
+import { MIN, DAY, startOfDay, overlapMin } from './util.js?v=13';
+import { isNightSleep } from './predict.js?v=13';
 
 const NIGHT_FROM = 19, NIGHT_TO = 7;
 

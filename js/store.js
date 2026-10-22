@@ -6,7 +6,7 @@
 // Every record carries `id` + `updatedAt` + a `deleted` tombstone, so a future
 // "share with partner" sync can merge two devices without a rewrite.
 
-import { uid } from './util.js';
+import { uid } from './util.js?v=13';
 
 const DB_NAME = 'lull', DB_VERSION = 1, LS_KEY = 'lull.fallback.v1';
 const EVENTS = 'events', SETTINGS = 'settings';

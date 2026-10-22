@@ -56,9 +56,21 @@ node tools/contrast.mjs          # WCAG contrast sweep, all three themes
 ```
 
 ## Deploying (gotcha)
-Static GitHub Pages site with `.nojekyll`. After editing any shell file, bump
-**both** the `?v=` numbers in `index.html` and `CACHE` in `sw.js`, or phones keep
-serving the old version.
+Static GitHub Pages site with `.nojekyll`. After editing **any** shell file run:
+
+```bash
+./tools/bump.sh
+```
+
+It raises the version in one place everywhere it appears: `CACHE` in `sw.js`,
+the `?v=` numbers in `index.html`, the service worker's file list, **and every
+`import … from './x.js?v=N'` inside `js/`**. Two traps this closes:
+
+- an unversioned `import` can be served stale from the browser's own HTTP cache
+  (GitHub Pages sets a 10-minute max-age), producing an app that is half new and
+  half old — the hardest kind of bug to see;
+- the service worker's install now fetches with `cache: 'reload'`, so it can't
+  re-cache a stale copy the browser handed it.
 
 ## Sources for the age guidance
 See [docs/SOURCES.md](docs/SOURCES.md).

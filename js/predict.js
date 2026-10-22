@@ -9,8 +9,8 @@
 // Nothing here pretends to be more precise than it is: everything comes out as
 // a range plus a confidence level.
 
-import { band, BEDTIME_STRETCH } from './science.js';
-import { MIN, median, clamp } from './util.js';
+import { band, BEDTIME_STRETCH } from './science.js?v=13';
+import { MIN, median, clamp } from './util.js?v=13';
 
 const MAX_SANE_WINDOW = 8 * 60;   // minutes; longer gaps = untracked time, not a real wake window
 const MIN_SANE_WINDOW = 10;       // minutes; shorter = a logging correction
