@@ -6,7 +6,7 @@
 // S linearly — the WHO daily tables differ from that by far less than a scale
 // can measure.
 
-import { WHO } from './who.js?v=16';
+import { WHO } from './who.js?v=19';
 
 export const MEASURES = {
   weight: { label: 'Weight', unit: 'kg', field: 'weightKg', step: 0.01, min: 0.5, max: 30 },

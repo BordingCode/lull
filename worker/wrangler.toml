@@ -1,0 +1,12 @@
+# Lull cloud backup Worker.
+# Deploy: source ~/.cloudflare-token && cd worker && npx wrangler@3 deploy
+# Table setup (once): npx wrangler@3 d1 execute lull-cloud --remote --file schema.sql
+# (wrangler 4 needs a newer Node than the Pi has)
+name = "lull-cloud"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lull-cloud"
+database_id = "de2b7417-cbe6-449d-8469-57b6ed5e445e"

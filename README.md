@@ -2,8 +2,9 @@
 
 A one-tap tracker for a baby's sleep, feeds and diapers, with a sensible
 prediction of the next nap. Built as an offline-first web app (PWA): it installs
-to the home screen, works with no internet, and **keeps all data on the phone** —
-nothing is uploaded anywhere.
+to the home screen, works with no internet, and **keeps all data on the phone**.
+Nothing is uploaded unless you turn on the optional, end-to-end encrypted
+cloud backup.
 
 Live: https://bordingcode.github.io/lull/
 
@@ -34,7 +35,28 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
   synthesised in the browser (no downloads, no loop seam), with volume and a
   fade-out sleep timer.
 - **Settings** — name, birth date, girl/boy (for the growth curves), ml/oz, three colour schemes (dark, light and
-  a dim warm **night mode** for 3am), reminders, and backup/restore.
+  a dim warm **night mode** for 3am), reminders, cloud backup, and backup/restore to a file.
+
+## Cloud backup (optional)
+Email + password account. Once on, every change is uploaded a few seconds later;
+logging in on another phone (or a partner's) downloads and merges it — newest
+copy of each entry wins, deletions included.
+
+- **End-to-end encrypted.** The phone turns email + password into three things
+  (PBKDF2, 600k rounds → HKDF): a fingerprint of the email (the account id), a
+  password proof (the server keeps only a salted hash of it) and the AES-GCM key.
+  The key never leaves the phone, so the server stores no email, no password and
+  no readable logs. See `js/vault.js`.
+- **The catch:** a forgotten password can't be reset; the logs on the phone are
+  still safe and can be uploaded to a new account. No emails are ever sent.
+- Theme and reminders stay per-phone; the account keys never go into backup files.
+- Server: a Cloudflare Worker + D1 database in `worker/` (free plan), live at
+  `lull-cloud.mathiasjob.workers.dev`. Ten wrong passwords lock an account for
+  15 minutes. Uploads carry a version number, so two phones can't overwrite each
+  other — the slower one merges and retries.
+- Test locally: `node worker/dev-server.mjs`, then open Lull with
+  `?cloud=http://localhost:8788`. `node --test tests/` covers the encryption,
+  the server checks and a two-phone merge.
 
 ## How the nap prediction works
 1. Look up the age-typical awake window — a *range*, e.g. 2h–2h30 at 5 months.
@@ -55,9 +77,8 @@ these are consensus ranges, not medical advice.
   reliable while Lull is open or installed to the home screen, but a web app
   cannot guarantee an alarm if the phone fully evicts it. The on-screen
   countdown is always correct.
-- **One device.** Partner sync is not built yet, but every record carries an id
-  and `updatedAt` plus deletion tombstones, so it can be added without a
-  rewrite. Backup/restore moves data between phones today.
+- **Not live partner sync.** Two phones on one account merge whenever the app
+  is opened or something is logged, not instantly.
 
 ## Running and testing
 ```bash

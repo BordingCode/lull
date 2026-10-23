@@ -1,14 +1,16 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=16';
-import * as sheets from './sheets.js?v=16';
-import * as sounds from './sounds.js?v=16';
-import * as notify from './notify.js?v=16';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=16';
-import { band, ageDays, BANDS } from './science.js?v=16';
-import { daySummary, lastDays, averages, trend } from './stats.js?v=16';
-import * as growth from './growth.js?v=16';
-import { timeline, axis24, meter, columns, trendBars, growthChart, esc } from './charts.js?v=16';
-import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=16';
+import * as store from './store.js?v=19';
+import * as sheets from './sheets.js?v=19';
+import * as sounds from './sounds.js?v=19';
+import * as notify from './notify.js?v=19';
+import * as cloud from './cloud.js?v=19';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=19';
+import { band, ageDays, BANDS } from './science.js?v=19';
+import { daySummary, lastDays, averages, trend } from './stats.js?v=19';
+import * as growth from './growth.js?v=19';
+import { timeline, axis24, meter, columns, trendBars, growthChart, esc } from './charts.js?v=19';
+import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=19';
+import { looksLikeEmail } from './vault.js?v=19';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -509,20 +511,25 @@ function openSettings() {
     installed to your home screen, but it cannot replace a native alarm if the phone closes it completely.
     The countdown on the Home screen is always right.</p>
 
-    <h2 class="sec" style="margin-top:4px">Your data</h2>
+    <h2 class="sec" style="margin-top:4px">Cloud backup</h2>
+    <div id="st-cloud">${cloudBlock()}</div>
+
+    <h2 class="sec" style="margin-top:22px">Backup file</h2>
     <div class="row">
-      <button class="btn ghost" id="st-export">Back up</button>
-      <button class="btn ghost" id="st-import">Restore</button>
+      <button class="btn ghost" id="st-export">Save file</button>
+      <button class="btn ghost" id="st-import">Restore file</button>
     </div>
     <input type="file" id="st-file" accept="application/json,.json" hidden />
-    <p class="faint" style="margin:10px 0 0">Stored only on this phone (${store.storageMode()}) — nothing is uploaded.
-    A backup is a plain file you can keep or move to another phone.</p>
+    <p class="faint" style="margin:10px 0 0">Your logs live on this phone (${store.storageMode()})${cloud.account()
+      ? ', with an encrypted copy in your cloud backup' : ' and nothing is uploaded'}.
+    A backup file is a plain copy you can keep or move to another phone.</p>
     <button class="btn danger" id="st-wipe" style="margin-top:14px">Delete all logged data</button>
     <p class="faint" style="margin-top:16px">Lull · offline baby tracker. Age guides are pediatric-sleep
     consensus ranges, not medical advice.</p>`;
 
   sheets.openSheet(html, (sheet, closeIt) => {
     sheets.wireChips(sheet);
+    wireCloud(sheet, closeIt);
     const save = async () => {
       await store.setSetting('name', sheet.querySelector('#st-name').value.trim() || 'Baby');
       const bv = sheet.querySelector('#st-birth').value;
@@ -569,9 +576,139 @@ function openSettings() {
     });
     sheet.querySelector('#st-wipe').addEventListener('click', async (ev) => {
       const btn = ev.currentTarget;
-      if (btn.dataset.sure !== '1') { btn.dataset.sure = '1'; btn.textContent = 'Tap again to delete everything'; return; }
+      if (btn.dataset.sure !== '1') {
+        btn.dataset.sure = '1';
+        btn.textContent = cloud.account() ? 'Tap again: deletes here AND in the cloud backup' : 'Tap again to delete everything';
+        return;
+      }
       for (const e of [...store.events()]) await store.deleteEvent(e.id);
       closeIt(); sheets.toast('All entries deleted'); render();
+    });
+  });
+}
+
+/* ---------------- cloud backup ---------------- */
+function cloudLine() {
+  const a = cloud.account(), st = cloud.getStatus();
+  if (st.state === 'syncing') return 'Backing up…';
+  if (st.state === 'offline') return 'Offline. It will back up when you are online again.';
+  if (st.state === 'error') return `⚠️ ${esc(st.msg)}`;
+  return a.at ? `✓ Backed up ${relative(a.at, Date.now())}` : 'Not backed up yet';
+}
+
+function cloudBlock() {
+  const a = cloud.account();
+  if (!a) return `
+    <p class="faint" style="margin:0 0 10px">Off. Turn it on and Lull keeps an encrypted copy of your logs online, so you can
+    get them back on a new phone, or share them with a partner's phone.</p>
+    <button class="btn ghost" id="cl-setup">Set up cloud backup</button>`;
+  return `
+    <div class="card tight" style="margin-bottom:10px">
+      <b id="cl-status">${cloudLine()}</b>
+      <div class="faint" style="margin-top:3px">${esc(a.email)} · backs up automatically</div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="cl-now">Back up now</button>
+      <button class="btn ghost" id="cl-out">Log out</button>
+    </div>
+    <button class="btn danger" id="cl-del" style="margin-top:10px">Delete cloud backup</button>`;
+}
+
+function wireCloud(sheet, closeIt) {
+  const box = sheet.querySelector('#st-cloud');
+  const redraw = () => { box.innerHTML = cloudBlock(); wire(); };
+  const stop = cloud.onStatus(() => {
+    if (!box.isConnected) { stop(); return; }
+    const line = box.querySelector('#cl-status');
+    if (line && cloud.account()) line.innerHTML = cloudLine(); else redraw();
+  });
+  function wire() {
+    box.querySelector('#cl-setup')?.addEventListener('click', () => cloudSheet('new'));
+    box.querySelector('#cl-now')?.addEventListener('click', () => cloud.syncNow());
+    box.querySelector('#cl-out')?.addEventListener('click', async () => {
+      await cloud.logout(); sheets.toast('Logged out. Your logs stay on this phone'); redraw();
+    });
+    box.querySelector('#cl-del')?.addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      if (btn.dataset.sure !== '1') {
+        btn.dataset.sure = '1'; btn.textContent = 'Tap again to delete the online copy'; return;
+      }
+      try { await cloud.deleteAccount(); sheets.toast('Cloud backup deleted. This phone keeps its logs'); redraw(); }
+      catch (e) { sheets.toast(e.message); }
+    });
+  }
+  wire();
+}
+
+/** Create-account / log-in form. `fromOnboarding` finishes the first-run screen on success. */
+function cloudSheet(mode, { fromOnboarding = false } = {}) {
+  const isNew = mode === 'new';
+  const html = `
+    <h3>Cloud backup</h3>
+    <div class="field">
+      ${sheets.chipRow('clmode', [{ v: 'new', t: 'New account' }, { v: 'login', t: 'I already have one' }], mode)}
+    </div>
+    <form id="cl-form">
+    <div class="field">
+      <label for="cl-email">Email</label>
+      <input id="cl-email" type="email" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div class="field">
+      <label for="cl-pw">Password</label>
+      <input id="cl-pw" type="password" autocomplete="${isNew ? 'new-password' : 'current-password'}" />
+    </div>
+    ${isNew ? `<div class="field">
+      <label for="cl-pw2">Password again</label>
+      <input id="cl-pw2" type="password" autocomplete="new-password" />
+    </div>` : ''}
+    <p class="faint" style="margin:0 0 14px">${isNew
+      ? `Your logs are locked with your password <b>before</b> they leave this phone. Nobody else can read them,
+         not even whoever runs the server. That also means <b>a forgotten password can't be reset</b>, so write it
+         down somewhere safe. Your email is only your username: Lull never sends you mail.`
+      : `Your backup is merged with what's already on this phone. Nothing here is deleted.`}</p>
+    <p class="cl-err" id="cl-err" role="alert" hidden></p>
+    <button class="btn" id="cl-go" type="submit">${isNew ? 'Create account and back up' : 'Log in and restore'}</button>
+    </form>`;
+
+  sheets.openSheet(html, (sheet, closeIt) => {
+    sheets.wireChips(sheet);
+    sheet.querySelector('[data-chipgroup="clmode"]').addEventListener('pick', e => {
+      const email = sheet.querySelector('#cl-email').value;
+      cloudSheet(e.detail, { fromOnboarding });
+      document.querySelector('#cl-email').value = email;
+    });
+    const err = sheet.querySelector('#cl-err');
+    const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+    // a real <form> lets the phone's password manager offer to save and fill the login
+    sheet.querySelector('#cl-form').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = sheet.querySelector('#cl-go');
+      if (btn.disabled) return;               // already working on it (Enter pressed twice)
+      const email = sheet.querySelector('#cl-email').value;
+      const pw = sheet.querySelector('#cl-pw').value;
+      err.hidden = true;
+      if (!looksLikeEmail(email)) return fail('Enter your email address.');
+      if (isNew && pw.length < 8) return fail('Use a password of at least 8 characters.');
+      if (isNew && pw !== sheet.querySelector('#cl-pw2').value) return fail("The two passwords don't match.");
+      if (!pw) return fail('Enter your password.');
+      const label = btn.textContent;
+      btn.disabled = true; btn.textContent = isNew ? 'Locking and uploading…' : 'Unlocking your backup…';
+      const before = store.events().length;
+      try {
+        if (isNew) await cloud.register(email, pw); else await cloud.login(email, pw);
+      } catch (e) {
+        btn.disabled = false; btn.textContent = label;
+        return fail(e.message);
+      }
+      if (cloud.getStatus().state === 'error') {
+        // logged in, but the first backup didn't go through: say so rather than claim success
+        closeIt(); sheets.toast(cloud.getStatus().msg); render(); return;
+      }
+      closeIt();
+      const got = store.events().length - before;
+      sheets.toast(isNew ? 'Cloud backup is on ✓' : `Logged in ✓ ${got > 0 ? `${got} entries restored` : 'Everything is up to date'}`);
+      if (fromOnboarding) finishOnboarding();
+      else render();
     });
   });
 }
@@ -679,6 +816,14 @@ function wireScreen() {
 }
 
 /* ---------------- boot ---------------- */
+function finishOnboarding() {
+  if (!S().birth) {          // logged in, but the backup had no baby details yet
+    sheets.toast('Logged in. Now add the name and birth date');
+    return;
+  }
+  $('#onboard').hidden = true; $('#app').hidden = false; render();
+}
+
 async function boot() {
   await store.init();
   applyTheme(theme());
@@ -693,8 +838,9 @@ async function boot() {
       if (!bv) { sheets.toast('Pick a birth date'); return; }
       await store.setSetting('name', name);
       await store.setSetting('birth', new Date(bv + 'T12:00:00').getTime());
-      ob.hidden = true; $('#app').hidden = false; render();
+      finishOnboarding();
     });
+    $('#ob-login').addEventListener('click', () => cloudSheet('login', { fromOnboarding: true }));
   } else {
     $('#app').hidden = false;
   }
@@ -707,6 +853,9 @@ async function boot() {
     render();
   }));
   store.subscribe(() => {});                       // keeps the cache authoritative
+  // a merge from another phone should show up on screen straight away
+  cloud.onStatus(st => { if (st.state === 'ok' && !$('#app').hidden && !document.querySelector('.sheet')) render(); });
+  cloud.start();
   sounds.onChange(() => { if (tab === 'sounds') render(); });
 
   render();
@@ -721,4 +870,4 @@ async function boot() {
 
 boot();
 // A tiny hook for debugging in the browser console.
-self.__lull = { store, predict, sounds, render: () => render(), get tab() { return tab; }, set tab(t) { tab = t; render(); } };
+self.__lull = { store, predict, sounds, cloud, render: () => render(), get tab() { return tab; }, set tab(t) { tab = t; render(); } };

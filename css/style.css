@@ -302,7 +302,7 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 .field label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .07em;
                color: var(--fg-faint); margin-bottom: 6px; font-weight: 700; }
 input, select, textarea, button { font: inherit; font-size: 16px; }
-input[type="text"], input[type="number"], input[type="time"], input[type="date"], textarea, select {
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], input[type="time"], input[type="date"], textarea, select {
   width: 100%; padding: 11px 12px; border-radius: 12px;
   background: var(--bg-3); color: var(--fg); border: 1px solid var(--line);
 }
@@ -322,6 +322,10 @@ textarea { min-height: 62px; resize: vertical; }
 .btn.ghost { background: var(--bg-3); color: var(--fg); border: 1px solid var(--line); }
 .btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .btn:active { transform: scale(.985); }
+.btn:disabled { opacity: .6; }
+.linkbtn { background: none; border: 0; color: var(--accent); font-size: 14px; margin-top: 14px; cursor: pointer;
+           text-decoration: underline; text-underline-offset: 3px; }
+.cl-err { color: var(--danger); font-size: 14px; margin: 0 0 12px; }
 .nudge { display: flex; gap: 6px; margin-top: 7px; }
 .nudge button { flex: 1; padding: 9px 0; border-radius: 10px; background: var(--bg-3);
                 border: 1px solid var(--line); color: var(--fg-dim); font-size: 13px; cursor: pointer; }
@@ -335,7 +339,7 @@ textarea { min-height: 62px; resize: vertical; }
          animation: fade .2s ease; }
 
 /* ---------- onboarding ---------- */
-.onboard { position: fixed; inset: 0; z-index: 80; background: var(--bg);
+.onboard { position: fixed; inset: 0; z-index: 30;   /* under sheets (40+) and toasts (60), so login + hints show on top */ background: var(--bg);
            display: grid; place-items: center; padding: 24px; }
 .onboard .inner { width: 100%; max-width: 380px; text-align: center; }
 .onboard h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -.5px; }
