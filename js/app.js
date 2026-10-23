@@ -1,20 +1,21 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=19';
-import * as sheets from './sheets.js?v=19';
-import * as sounds from './sounds.js?v=19';
-import * as notify from './notify.js?v=19';
-import * as cloud from './cloud.js?v=19';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=19';
-import { band, ageDays, BANDS } from './science.js?v=19';
-import { daySummary, lastDays, averages, trend } from './stats.js?v=19';
-import * as growth from './growth.js?v=19';
-import { timeline, axis24, meter, columns, trendBars, growthChart, esc } from './charts.js?v=19';
-import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=19';
-import { looksLikeEmail } from './vault.js?v=19';
+import * as store from './store.js?v=21';
+import * as sheets from './sheets.js?v=21';
+import * as sounds from './sounds.js?v=21';
+import * as notify from './notify.js?v=21';
+import * as cloud from './cloud.js?v=21';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=21';
+import { band, ageDays, BANDS } from './science.js?v=21';
+import { trend } from './stats.js?v=21';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=21';
+import * as growth from './growth.js?v=21';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=21';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=21';
+import { looksLikeEmail } from './vault.js?v=21';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
-let logDay = startOfDay(Date.now());     // which day the Log screen is showing
+let logDay = null;                       // which baby-day (date key) the Log shows; null = the current one
 let tickTimer = null;
 let trendSpan = 14;                      // Patterns → Over time: 14 / 30 / 90 days or 'all'
 let growthMeasure = 'weight';            // which WHO chart the Growth screen shows
@@ -44,7 +45,7 @@ function homeScreen() {
   const now = Date.now();
   const evs = store.events();
   const p = predict({ events: evs, birthMs: birthMs(), nowMs: now });
-  const today = daySummary(evs, startOfDay(now), now);
+  const today = babyDay(evs, currentDate(evs, now), now);
 
   /* --- the ring: how far through the current nap / awake window are we --- */
   let frac = 0, past = false, inner;
@@ -135,16 +136,26 @@ function homeScreen() {
       <button data-log="diaper"><span class="emoji">🧷</span>Diaper</button>
     </div>`;
 
-  /* --- today --- */
-  const feedTicks = evs.filter(e => e.type === 'feed' && e.start >= today.dayStart && e.start < today.dayStart + DAY).map(e => e.start);
-  const diaperTicks = evs.filter(e => e.type === 'diaper' && e.start >= today.dayStart && e.start < today.dayStart + DAY).map(e => e.start);
+  /* --- good morning: no wake-up logged yet today --- */
+  const nowH = new Date(now).getHours();
+  const morning = nowH >= 4 && nowH < 13 && p.state !== 'asleep'
+    && (!today || startOfDay(today.start) !== startOfDay(now) || today.source === 'guess') ? `
+    <div class="card morning">
+      <div class="t"><b>☀️ Good morning!</b><span>When did ${esc(babyName())} wake up for the day?</span></div>
+      <button class="btn" id="log-daystart">Log wake-up</button>
+    </div>` : '';
+
+  /* --- today (the baby-day so far, starting at the morning wake-up) --- */
+  const inToday = (e) => e.start >= today.start && e.start < today.until;
+  const barFrom = (() => { const d = new Date(today.start); d.setMinutes(0, 0, 0); return d.getTime(); })();
   const recent = [...evs].sort((a, b) => b.start - a.start).slice(0, 4);
 
   const todayCard = `
-    <h2 class="sec">Today</h2>
+    <h2 class="sec">Today <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:500">· since ${clock(today.start)}</span></h2>
     <div class="card tight">
-      ${timeline(today.blocks, today.dayStart, { feeds: feedTicks, diapers: diaperTicks })}
-      ${axis24()}
+      ${timeline(today.blocks, barFrom, { feeds: evs.filter(e => e.type === 'feed' && inToday(e)).map(e => e.start),
+                                          diapers: evs.filter(e => e.type === 'diaper' && inToday(e)).map(e => e.start) })}
+      ${axis(barFrom)}
     </div>
     <div class="stats">
       <div class="stat sleep"><b>${dur(today.sleepMin)}</b><span>sleep</span></div>
@@ -156,7 +167,7 @@ function homeScreen() {
     <h2 class="sec">Latest</h2>
     <div class="card" id="recent">${recent.map(entryRow).join('')}</div>` : '';
 
-  return ring + pred + quick + todayCard + recentCard;
+  return ring + morning + pred + quick + todayCard + recentCard;
 }
 
 /* ---------------- entry rows ---------------- */
@@ -179,6 +190,9 @@ function entryRow(e) {
     title = 'Diaper';
     sub = { wet: 'Wet', dirty: 'Dirty', both: 'Wet + dirty', dry: 'Dry' }[e.kind] || '';
   }
+  else if (e.type === 'daystart') {
+    ic = '☀️'; title = 'Day started'; sub = 'Up for the day';
+  }
   else if (e.type === 'growth') {
     cls = 'growth'; ic = '📏'; title = 'Measurement';
     sub = Object.entries(growth.MEASURES).filter(([, m]) => e[m.field] > 0)
@@ -199,36 +213,67 @@ function entryRow(e) {
 function logScreen() {
   const now = Date.now();
   const evs = store.events();
-  const d = daySummary(evs, logDay, now);
-  const isToday = logDay === startOfDay(now);
-  const items = evs.filter(e => e.start >= logDay && e.start < logDay + DAY)
-                   .sort((a, b) => b.start - a.start);
-  const label = isToday ? 'Today'
-    : logDay === startOfDay(now) - DAY ? 'Yesterday'
+  const ix = index(evs);
+  const cur = currentDate(ix, now);
+  if (logDay == null || logDay > cur) logDay = cur;
+  const d = babyDay(ix, logDay, now);
+  if (!d) { logDay = cur; return logScreen(); }
+  const prev = previousFor(ix, d, now);
+  const hasPrev = prev && (prev.blocks.length || prev.feeds.count || prev.diapers.total);
+  const isCur = logDay === cur;
+  const label = isCur ? 'Today' : logDay === prevDate(cur) ? 'Yesterday'
     : new Date(logDay).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const inDay = (e) => e.start >= d.start && e.start < d.until;
+  const items = evs.filter(e => inDay(e) || (e.type === 'sleep' && !e.end && isCur && e.start < d.start))
+                   .sort((a, b) => b.start - a.start);
+
+  // ▲/▼ against the day before (at this time of day, while today is still going). If either
+  // day's night wasn't logged, its sleep/awake hours aren't comparable: only naps, feeds, diapers are.
+  const nightGap = d.nightMissing || prev?.nightMissing;
+  const delta = (a, b, mins = true, needsNight = false) => {
+    if (!hasPrev || (needsNight && nightGap)) return '';
+    const diff = a - b;
+    if (mins ? Math.abs(diff) < 5 : diff === 0) return '<small class="delta">= same</small>';
+    return `<small class="delta">${diff > 0 ? '▲' : '▼'} ${mins ? dur(Math.abs(diff)) : Math.abs(diff)}</small>`;
+  };
+  const center = `<span>sleep</span><b>${dur(d.sleepMin)}</b>
+    <div class="when">☀️ ${clock(d.start)}${d.source === 'guess' ? '?' : ''}${d.bedtime ? ` · 🌙 ${clock(d.bedtime)}` : ''}</div>`;
+  const lastSleepEnd = Math.max(d.start, ...d.blocks.map(b => b.end));
+  const nightNote = d.nightMissing ? `
+    <div class="guess"><span>No night sleep logged after ${clock(lastSleepEnd)}, so awake time can't be counted for this day.</span>
+      <button class="btn ghost" id="add-night" data-from="${lastSleepEnd}" data-to="${d.end}">+ Night</button></div>` : '';
+  const guessNote = d.source === 'guess' ? `
+    <div class="guess"><span>No wake-up logged, so this day is assumed to start at ${clock(d.start)}.</span>
+      <button class="btn ghost" id="fix-daystart">Log it</button></div>` : '';
 
   return `
     <div class="daynav">
       <button class="iconbtn" id="day-prev" aria-label="Previous day">‹</button>
-      <b>${esc(label)}</b>
-      <button class="iconbtn" id="day-next" aria-label="Next day" ${isToday ? 'disabled style="opacity:.35"' : ''}>›</button>
+      <b>${esc(label)}<small>${clock(d.start)} → ${d.ongoing ? 'now' : clock(d.end)}</small></b>
+      <button class="iconbtn" id="day-next" aria-label="Next day" ${isCur ? 'disabled style="opacity:.35"' : ''}>›</button>
     </div>
-    <div class="card tight">
-      ${timeline(d.blocks, d.dayStart, {
-        feeds: evs.filter(e => e.type === 'feed' && e.start >= logDay && e.start < logDay + DAY).map(e => e.start),
-        diapers: evs.filter(e => e.type === 'diaper' && e.start >= logDay && e.start < logDay + DAY).map(e => e.start) })}
-      ${axis24()}
+    <div class="card">
+      ${dayDial(d, { center,
+        feeds: evs.filter(e => e.type === 'feed' && inDay(e)).map(e => e.start),
+        diapers: evs.filter(e => e.type === 'diaper' && inDay(e)).map(e => e.start) })}
+      <div class="legend"><span><i style="background:var(--nap)"></i>Nap</span><span><i style="background:var(--accent)"></i>Night</span>
+        <span><i style="background:var(--feed)"></i>Feed</span><span><i style="background:var(--diaper)"></i>Diaper</span></div>
+      ${guessNote}${nightNote}
     </div>
-    <div class="stats">
-      <div class="stat sleep"><b>${dur(d.sleepMin)}</b><span>total sleep</span></div>
-      <div class="stat sleep"><b>${d.naps}</b><span>naps</span></div>
-      <div class="stat sleep"><b>${dur(d.longestMin)}</b><span>longest</span></div>
+    <h2 class="sec">${isCur ? 'This day so far' : 'This day'}</h2>
+    <div class="stats two">
+      <div class="stat nap"><b>${dur(d.dayMin)}</b><span>day sleep · ${d.naps} nap${d.naps === 1 ? '' : 's'}</span>${delta(d.dayMin, prev?.dayMin)}</div>
+      <div class="stat sleep"><b>${dur(d.nightMin)}</b><span>night sleep</span>${delta(d.nightMin, prev?.nightMin, true, true)}</div>
+      <div class="stat"><b>${d.nightMissing ? '—' : dur(d.awakeMin)}</b><span>awake</span>${delta(d.awakeMin, prev?.awakeMin, true, true)}</div>
+      <div class="stat sleep"><b>${dur(d.sleepMin)}</b><span>total sleep</span>${delta(d.sleepMin, prev?.sleepMin, true, true)}</div>
     </div>
     <div class="stats" style="margin-top:8px">
-      <div class="stat feed"><b>${d.feeds.count}</b><span>feeds</span></div>
-      <div class="stat feed"><b>${d.feeds.bottleMl ? amount(d.feeds.bottleMl) : '—'}</b><span>bottle</span></div>
-      <div class="stat diaper"><b>${d.diapers.total}</b><span>diapers</span></div>
+      <div class="stat feed"><b>${d.feeds.count}</b><span>feeds</span>${delta(d.feeds.count, prev?.feeds.count, false)}</div>
+      <div class="stat feed"><b>${d.feeds.bottleMl ? amount(d.feeds.bottleMl) : '—'}</b><span>bottle</span>${d.feeds.bottleMl || prev?.feeds.bottleMl ? delta(d.feeds.bottleMl, prev?.feeds.bottleMl, false).replace(/(\d+)<\/small>/, (m, n) => `${amount(Number(n))}</small>`) : ''}</div>
+      <div class="stat diaper"><b>${d.diapers.total}</b><span>diapers</span>${delta(d.diapers.total, prev?.diapers.total, false)}</div>
     </div>
+    ${hasPrev ? `<p class="faint" style="margin:8px 2px 0">▲▼ compared with ${isCur ? 'yesterday at this point in the day' : 'the day before'}${
+      nightGap ? `. Night and awake hours aren't compared: ${d.nightMissing ? "this day's" : "the day before's"} night wasn't logged` : ''}.</p>` : ''}
     <h2 class="sec">Entries</h2>
     <div class="card">${items.length ? items.map(entryRow).join('')
       : '<div class="faint" style="padding:6px 2px">Nothing logged this day.</div>'}</div>
@@ -236,7 +281,8 @@ function logScreen() {
       <button class="btn ghost" data-add="sleep">+ Sleep</button>
       <button class="btn ghost" data-add="feed">+ Feed</button>
       <button class="btn ghost" data-add="diaper">+ Diaper</button>
-    </div>`;
+    </div>
+    <button class="btn ghost" data-add="daystart" style="margin-top:8px">☀️ Day started at…</button>`;
 }
 
 /* ---------------- patterns screen ---------------- */
@@ -249,7 +295,11 @@ function patternsScreen() {
       <p class="muted">Log a few sleeps and this screen fills with your baby's own rhythm —
       a 24-hour bar per day, averages, and how their awake windows compare to their age.</p></div>`;
   }
-  const days = lastDays(evs, 14, now);
+  const days = lastBabyDays(evs, 14, now);
+  // one shared window for every row, from the earliest wake-up to the latest next morning
+  const offH = Math.min(...days.map(d => Math.floor((d.start - d.date) / HOUR)));
+  const endH = Math.max(...days.map(d => Math.ceil(((d.end ?? d.until) - d.date) / HOUR)));
+  const spanMs = Math.max(24, endH - offH) * HOUR;
   const avg = averages(days);
   const b = band(birthMs() || now, now);
   const windows = observedWindows(evs, now, 14);
@@ -257,11 +307,11 @@ function patternsScreen() {
 
   const rows = days.map(d => {
     const dt = new Date(d.dayStart);
-    const lbl = d.dayStart === startOfDay(now) ? 'Today'
+    const lbl = d.ongoing ? 'Today'
       : dt.toLocaleDateString(undefined, { weekday: 'short' }) + ' ' + dt.getDate();
     return `<div class="rowbar">
       <div class="d">${esc(lbl)}</div>
-      <div class="t">${timeline(d.blocks, d.dayStart, { h: 20, feeds: [], diapers: [] })}</div>
+      <div class="t">${timeline(d.blocks, d.date + offH * HOUR, { h: 20, span: spanMs })}</div>
       <div class="n">${d.sleepMin ? dur(d.sleepMin) : '—'}</div>
     </div>`;
   }).join('');
@@ -278,8 +328,8 @@ function patternsScreen() {
         : avg.sleepMin / 60 > b.total[1] ? 'Above the usual range — lovely.'
         : 'Inside the usual range for this age.'}</div>
       <div class="stats" style="margin-top:12px">
-        <div class="stat sleep"><b>${dur(avg.nightMin)}</b><span>night (19–07)</span></div>
-        <div class="stat sleep"><b>${dur(avg.dayMin)}</b><span>day naps</span></div>
+        <div class="stat sleep"><b>${dur(avg.nightMin)}</b><span>night</span></div>
+        <div class="stat nap"><b>${dur(avg.dayMin)}</b><span>day naps</span></div>
         <div class="stat sleep"><b>${dur(avg.longestMin)}</b><span>longest stretch</span></div>
       </div>
     </div>` : '';
@@ -312,7 +362,9 @@ function patternsScreen() {
 
   return `<h2 class="sec">Last 14 days</h2>
     <div class="card">${rows}
-      <div class="faint" style="margin-top:6px">Purple = asleep. Darker background = night (19:00–07:00).</div>
+      <div class="rowbar" style="margin:0"><div class="d"></div><div class="t">${axis(days[0].date + offH * HOUR, spanMs)}</div><div class="n"></div></div>
+      <div class="faint" style="margin-top:6px">Each row is one day: from the morning wake-up, through the night, to the next morning.
+      <span style="color:var(--nap)">■</span> naps · <span style="color:var(--accent)">■</span> night sleep · darker background = 19:00–07:00.</div>
     </div>
     ${totalCard}${trendSection(evs, now)}${windowCard}${feedCard}
     <p class="faint" style="margin:14px 2px 0">Age guides are pediatric-sleep consensus ranges, not medical advice —
@@ -764,6 +816,16 @@ async function toggleSleep() {
   }
 }
 
+/** "Day started" for the day on screen: the viewed day in the Log, otherwise this morning. */
+function openDayStart() {
+  const now = Date.now(), cur = currentDate(store.events(), now);
+  const viewingPast = tab === 'log' && logDay != null && logDay < cur;
+  const base = viewingPast ? logDay + 6.5 * HOUR : now;
+  // if the viewed day already has a logged start, edit that one instead of adding a second
+  const existing = viewingPast && store.events().find(e => e.type === 'daystart' && startOfDay(e.start) === logDay);
+  sheets.dayStartSheet(existing || null, { baseMs: base, onDone: render });
+}
+
 function wireScreen() {
   const screen = $('#screen');
   screen.querySelector('#sleep-toggle')?.addEventListener('click', async () => {
@@ -779,15 +841,25 @@ function wireScreen() {
     if (ev) sheets.editEvent(ev, { unit: unit(), onDone: render });
   }));
   screen.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => {
-    const base = logDay === startOfDay(Date.now()) ? Date.now() : logDay + 12 * 3600000;
+    const now = Date.now(), cur = currentDate(store.events(), now);
+    const base = logDay == null || logDay >= cur ? now : logDay + 12 * HOUR;
     const stub = { start: base };
-    if (btn.dataset.add === 'sleep') sheets.sleepSheet({ ...stub, type: 'sleep', id: undefined, end: base + 3600000 }, { onDone: render });
+    if (btn.dataset.add === 'daystart') openDayStart();
+    else if (btn.dataset.add === 'sleep') sheets.sleepSheet({ ...stub, type: 'sleep', id: undefined, end: base + 3600000 }, { onDone: render });
     else if (btn.dataset.add === 'feed') sheets.feedSheet({ ...stub, type: 'feed', kind: 'breast', id: undefined }, { unit: unit(), onDone: render });
     else sheets.diaperSheet({ ...stub, type: 'diaper', kind: 'wet', id: undefined }, { onDone: render });
   }));
-  screen.querySelector('#day-prev')?.addEventListener('click', () => { logDay -= DAY; render(); });
+  screen.querySelector('#day-prev')?.addEventListener('click', () => { logDay = prevDate(logDay); render(); });
   screen.querySelector('#day-next')?.addEventListener('click', () => {
-    if (logDay < startOfDay(Date.now())) { logDay += DAY; render(); }
+    if (logDay < currentDate(store.events(), Date.now())) { logDay = nextDate(logDay); render(); }
+  });
+  screen.querySelector('#log-daystart')?.addEventListener('click', () => openDayStart());
+  screen.querySelector('#fix-daystart')?.addEventListener('click', () => openDayStart());
+  screen.querySelector('#add-night')?.addEventListener('click', (e) => {
+    // suggest 19:30 (or right after the last nap, if later) until the next morning's wake-up
+    const from = Number(e.currentTarget.dataset.from), to = Number(e.currentTarget.dataset.to);
+    const bed = new Date(from); bed.setHours(19, 30, 0, 0);
+    sheets.sleepSheet({ type: 'sleep', start: Math.max(bed.getTime(), from + 30 * MIN), end: to }, { onDone: render });
   });
   screen.querySelectorAll('[data-sound]').forEach(btn => btn.addEventListener('click', () => {
     sounds.play(btn.dataset.sound); render();
@@ -849,7 +921,7 @@ async function boot() {
   $('#btn-theme').addEventListener('click', cycleTheme);
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => {
     tab = b.dataset.tab;
-    if (tab === 'log') logDay = startOfDay(Date.now());
+    if (tab === 'log') logDay = null;
     render();
   }));
   store.subscribe(() => {});                       // keeps the cache authoritative

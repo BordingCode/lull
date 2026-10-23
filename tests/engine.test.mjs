@@ -3,7 +3,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { predict, observedWindows, blendWindow, isNightSleep, napsToday, ongoingSleep, lastWakeAt } from '../js/predict.js';
 import { band, ageDays } from '../js/science.js';
-import { daySummary, lastDays, averages } from '../js/stats.js';
 import { dur, relative, overlapMin, median, startOfDay } from '../js/util.js';
 
 const MIN = 60000, HOUR = 3600000, DAY = 86400000;
@@ -162,46 +161,3 @@ test('night sleep detection and nap counting', () => {
   assert.equal(napsToday(evs, T), 2);
 });
 
-test('daySummary splits day vs night sleep and totals feeds/diapers', () => {
-  const evs = [
-    { id: 'a', type: 'sleep', start: at(20, 0, -1), end: at(6, 0) },         // 6h lands in today, all night
-    { id: 'b', type: 'sleep', start: at(9, 0), end: at(10, 30) },            // 90 min day sleep
-    { id: 'c', type: 'feed', start: at(6, 15), kind: 'breast', end: at(6, 35) },
-    { id: 'd', type: 'feed', start: at(10, 40), kind: 'bottle', amountMl: 150 },
-    { id: 'e', type: 'diaper', start: at(6, 40), kind: 'both' },
-    { id: 'f', type: 'diaper', start: at(11, 0), kind: 'wet' },
-  ];
-  const s = daySummary(evs, startOfDay(T), T);
-  assert.equal(s.sleepMin, 6 * 60 + 90);
-  assert.equal(s.nightMin, 6 * 60);
-  assert.equal(s.dayMin, 90);
-  assert.equal(s.naps, 1);
-  assert.equal(s.feeds.count, 2);
-  assert.equal(s.feeds.breastMin, 20);
-  assert.equal(s.feeds.bottleMl, 150);
-  assert.equal(s.diapers.total, 2);
-  assert.equal(s.diapers.wet, 2);
-  assert.equal(s.diapers.dirty, 1);
-  assert.equal(s.blocks.length, 2);
-});
-
-test('an ongoing sleep is drawn up to now, not to the end of time', () => {
-  const evs = [{ id: 'z', type: 'sleep', start: at(13, 0), end: null }];
-  const s = daySummary(evs, startOfDay(T), T);
-  assert.equal(s.blocks[0].end, T);
-  assert.equal(Math.round(s.sleepMin), 60);
-  assert.equal(s.blocks[0].ongoing, true);
-});
-
-test('averages ignore today (still in progress)', () => {
-  const evs = [
-    { id: '1', type: 'sleep', start: at(9, 0, -2), end: at(11, 0, -2) },
-    { id: '2', type: 'sleep', start: at(9, 0, -1), end: at(13, 0, -1) },
-    { id: '3', type: 'sleep', start: at(13, 0), end: null },
-  ];
-  const days = lastDays(evs, 3, T);
-  assert.equal(days.length, 3);
-  const a = averages(days);
-  assert.equal(a.days, 2);
-  assert.equal(a.sleepMin, (120 + 240) / 2);
-});

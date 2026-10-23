@@ -3,8 +3,8 @@
 // seconds later; logging in on another phone downloads and merges it back.
 // The server (worker/) only ever holds scrambled bytes — see vault.js.
 
-import * as store from './store.js?v=19';
-import { deriveAccount, seal, open, normEmail } from './vault.js?v=19';
+import * as store from './store.js?v=21';
+import { deriveAccount, seal, open, normEmail } from './vault.js?v=21';
 
 const SERVER = 'https://lull-cloud.mathiasjob.workers.dev';
 const DEBOUNCE_MS = 3000;

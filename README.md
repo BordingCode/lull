@@ -21,9 +21,19 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
   a live "awake for 1h 12m" counter, quick-log buttons for breast, bottle,
   solids and diaper, the next-nap prediction with a countdown, and today's
   24-hour bar.
-- **Log** — every entry for a day, tap to correct the times, arrows to step back
-  through previous days, and buttons to backfill anything you forgot.
-- **Patterns** — one 24-hour bar per day for 14 days, averages against the
+- **Log** — one *day* at a time, the way parents live it: from the morning
+  wake-up, through the day and the night after it, to the next morning. The day
+  is drawn as a **circle** that starts at the top with the wake-up (naps in blue,
+  night in purple, feed and diaper dots), followed by **day sleep, night sleep,
+  awake and total sleep** with ▲/▼ against the day before (at the same point in
+  the day, while today is still going). Then every entry, tap to correct, and
+  buttons to backfill anything you forgot.
+- **☀️ Day started** — log the morning wake-up without having logged bedtime.
+  Home asks for it each morning. A day starts at, in order: a logged "Day
+  started", the end of the night's sleep (04:00–11:00), or a clearly marked
+  06:00 guess. A finished day with no night logged says so, offers "+ Night",
+  and is left out of the averages instead of counting the night as awake.
+- **Patterns** — one bar per day (wake-up to next wake-up) for 14 days, averages against the
   age-appropriate sleep range, your baby's own measured awake window, and
   feeds/diapers per day. **Over time** charts total sleep (night vs naps,
   against the age guide), longest night stretch, feeds and diapers per day over

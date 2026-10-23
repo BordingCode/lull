@@ -57,6 +57,10 @@ const PAIRS = [
   ['warn', 'bg-2', 4.5, 'warning text'],
   ['danger', 'bg-2', 4.5, 'danger text'],
   ['accent', 'ring-track', 3.0, 'progress ring (graphic)'],
+  ['nap', 'bg-2', 4.5, 'nap numbers on card'],
+  ['nap', 'ring-track', 3.0, 'nap arc on the day circle (graphic)'],
+  ['nap', 'bg-3', 3.0, 'nap block on a sleep bar (graphic)'],
+  ['accent', 'bg-3', 3.0, 'night block on a sleep bar (graphic)'],
   ['line', 'bg', 1.2, 'hairline border (graphic)'],
 ];
 

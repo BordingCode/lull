@@ -1,8 +1,8 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=19';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=19';
-import { esc } from './charts.js?v=19';
-import { MEASURES } from './growth.js?v=19';
+import * as store from './store.js?v=21';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=21';
+import { esc } from './charts.js?v=21';
+import { MEASURES } from './growth.js?v=21';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -93,7 +93,7 @@ const chipRow = (name, items, active) => `
 
 /* ---------- sleep ---------- */
 export function sleepSheet(ev, { onDone } = {}) {
-  const isNew = !ev;
+  const isNew = !ev?.id;
   const start = ev?.start ?? Date.now();
   const hasEnd = !!ev?.end;
   const html = `
@@ -137,9 +137,41 @@ export function sleepSheet(ev, { onDone } = {}) {
   });
 }
 
+/* ---------- day started ---------- */
+// The morning wake-up. Starts a new day in the Log without needing last night's
+// bedtime. If a sleep is still running from the night, it ends at this time.
+export function dayStartSheet(ev, { baseMs = Date.now(), onDone } = {}) {
+  const isNew = !ev?.id;
+  const start = ev?.start ?? baseMs;
+  const html = `
+    <h3>${isNew ? '☀️ Day started' : '☀️ Edit day start'}</h3>
+    ${timeField('ds-time', 'Woke up for the day at', start)}
+    <p class="faint" style="margin:0 0 14px">This starts a new day in the Log: the day, then the night after it.
+    You don't need to have logged bedtime the evening before.</p>
+    <button class="btn" id="ds-save">${isNew ? 'Save' : 'Save changes'}</button>
+    ${isNew ? '' : '<button class="btn danger" id="ds-del" style="margin-top:8px">Delete this day start</button>'}`;
+
+  openSheet(html, (sheet, closeIt) => {
+    wireNudges(sheet);
+    sheet.querySelector('#ds-save').addEventListener('click', async () => {
+      const at = msFromTime(start, sheet.querySelector('#ds-time').value);
+      if (at > Date.now() + 5 * MIN) { toast("That's in the future — check the time"); return; }
+      const going = store.events().find(e => e.type === 'sleep' && !e.end);
+      if (isNew && going && going.start < at) await store.saveEvent({ ...going, end: at });
+      await store.saveEvent({ ...(ev || {}), type: 'daystart', start: at });
+      closeIt();
+      toast(isNew && going && going.start < at ? `Good morning! Night sleep ended at ${timeValue(at)}` : isNew ? 'Good morning! Day started' : 'Day start updated');
+      onDone?.();
+    });
+    sheet.querySelector('#ds-del')?.addEventListener('click', async () => {
+      await store.deleteEvent(ev.id); closeIt(); toast('Deleted'); onDone?.();
+    });
+  });
+}
+
 /* ---------- feed ---------- */
 export function feedSheet(ev, { kind = 'breast', unit = 'ml', onDone } = {}) {
-  const isNew = !ev;
+  const isNew = !ev?.id;
   const start = ev?.start ?? Date.now();
   const k = ev?.kind || kind;
   const html = `
@@ -208,7 +240,7 @@ export function feedSheet(ev, { kind = 'breast', unit = 'ml', onDone } = {}) {
 
 /* ---------- diaper ---------- */
 export function diaperSheet(ev, { onDone } = {}) {
-  const isNew = !ev;
+  const isNew = !ev?.id;
   const start = ev?.start ?? Date.now();
   const html = `
     <h3>${isNew ? 'Add diaper' : 'Edit diaper'}</h3>
@@ -298,6 +330,7 @@ export function editEvent(ev, opts = {}) {
   if (ev.type === 'feed') return feedSheet(ev, opts);
   if (ev.type === 'diaper') return diaperSheet(ev, opts);
   if (ev.type === 'growth') return growthSheet(ev, opts);
+  if (ev.type === 'daystart') return dayStartSheet(ev, opts);
 }
 
 export { msFromTime, timeValue, chipRow, wireChips, wireNudges, picked };

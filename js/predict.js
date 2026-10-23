@@ -9,8 +9,8 @@
 // Nothing here pretends to be more precise than it is: everything comes out as
 // a range plus a confidence level.
 
-import { band, BEDTIME_STRETCH } from './science.js?v=19';
-import { MIN, median, clamp } from './util.js?v=19';
+import { band, BEDTIME_STRETCH } from './science.js?v=21';
+import { MIN, median, clamp } from './util.js?v=21';
 
 const MAX_SANE_WINDOW = 8 * 60;   // minutes; longer gaps = untracked time, not a real wake window
 const MIN_SANE_WINDOW = 10;       // minutes; shorter = a logging correction
@@ -32,10 +32,15 @@ export function ongoingSleep(events) {
   return sleeps(events).find(s => !s.end) || null;
 }
 
-/** When the baby most recently woke up, or null if never logged. */
-export function lastWakeAt(events) {
+/** When the baby most recently woke up, or null if never logged.
+ *  A "Day started" entry counts too, so a morning works without last night's bedtime. */
+export function lastWakeAt(events, nowMs = Infinity) {
   const done = sleeps(events).filter(s => s.end);
-  return done.length ? done[done.length - 1].end : null;
+  let woke = done.length ? done[done.length - 1].end : null;
+  for (const e of events) {
+    if (e.type === 'daystart' && !e.deleted && e.start <= nowMs && (woke == null || e.start > woke)) woke = e.start;
+  }
+  return woke;
 }
 
 /**
@@ -163,7 +168,7 @@ export function predict({ events, birthMs, nowMs }) {
     return out;
   }
 
-  const woke = lastWakeAt(events);
+  const woke = lastWakeAt(events, nowMs);
   if (woke == null) { out.awakeSince = null; return out; }
 
   const awakeMin = (nowMs - woke) / MIN;

@@ -83,7 +83,9 @@ test('trend: one point per full day, gaps stay gaps, today is left out', () => {
   assert.deepEqual(points.map(p => new Date(p.start).getDate()), [16, 17, 18, 19]);
   const [d16, d17, d18, d19] = points;
   assert.equal(d16.longestNightMin, 11 * 60, 'whole night, not clipped at midnight');
-  assert.equal(d17.sleepMin, 6 * 60 + 60, 'the 17th: 00–06 of the night + a 1h nap');
+  assert.equal(d16.sleepMin, 11 * 60, 'a day owns the whole night after it, not just the part before midnight');
+  assert.equal(d17.dayMin, 60, 'the 17th starts at 06:00 when that night ended, then a 1h nap');
+  assert.equal(d17.sleepMin, null, "the 17th's night wasn't logged, so its total isn't a real total");
   assert.equal(d17.feeds, 1);
   assert.equal(d17.bottleMl, 120);
   assert.equal(d17.diapers, 1);
@@ -104,6 +106,6 @@ test('trend: long spans become weekly averages, newest week complete', () => {
   assert.equal(step, 7);
   assert.equal(points.at(-1).days, 7);
   assert.equal(points.reduce((a, p) => a + p.days, 0), 60);
-  near(points.at(-1).sleepMin, (4 * 60 + 3 * 120) / 7, 1e-9, 'weekly mean');
+  near(points.at(-1).dayMin, (4 * 60 + 3 * 120) / 7, 1e-9, 'weekly mean');
   assert.equal(trend([], 14, now).points.length, 0);
 });

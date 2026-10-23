@@ -15,7 +15,8 @@
   --fg-dim:    #b3bdd0;
   --fg-faint:  #8591a8;
   --line:      #2a3243;
-  --accent:    #a79bff;   /* sleep */
+  --accent:    #a79bff;   /* sleep (night) */
+  --nap:       #6cc3f5;   /* daytime naps */
   --accent-ink:#0d1017;
   --accent-soft:#2a2850;
   --feed:      #ffb86b;
@@ -40,6 +41,7 @@
   --fg-faint:  #5c6376;
   --line:      #ddd8ec;
   --accent:    #5b45d8;
+  --nap:       #186e9f;
   --accent-ink:#ffffff;
   --accent-soft:#e7e2fd;
   --feed:      #a65a09;
@@ -64,6 +66,7 @@
   --fg-faint:  #a07a52;
   --line:      #241a0f;
   --accent:    #d99a5c;
+  --nap:       #a8794a;
   --accent-ink:#000000;
   --accent-soft:#2a1d10;
   --feed:      #d99a5c;
@@ -265,6 +268,28 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 
 .daynav { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; }
 .daynav b { flex: 1; text-align: center; font-size: 15px; }
+.daynav b small { display: block; font-size: 12px; font-weight: 500; color: var(--fg-faint); margin-top: 1px; }
+
+/* ---------- the day as a circle (Log) ---------- */
+.dial { position: relative; width: min(100%, 320px); min-width: 0; margin: 2px auto 0; }
+.dial svg { width: 100%; height: auto; display: block; }
+.dial-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+          justify-content: center; text-align: center; pointer-events: none; }
+.dial-c b { font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.dial-c span { font-size: 12px; color: var(--fg-faint); }
+.dial-c .when { margin-top: 8px; font-size: 13px; color: var(--fg-dim); }
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 12px; color: var(--fg-faint); margin: 6px 0 2px; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.guess { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
+.guess span { flex: 1; font-size: 13px; color: var(--fg-dim); }
+.guess button { flex: 0 0 auto; width: auto; padding: 9px 13px; font-size: 14px; }
+.stats.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat.nap b { color: var(--nap); }
+.stat .delta { display: block; font-size: 11.5px; color: var(--fg-dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.morning { display: flex; gap: 12px; align-items: center; }
+.morning .t { flex: 1; }
+.morning .t span { display: block; font-size: 13px; color: var(--fg-dim); margin-top: 2px; }
+.morning button { flex: 0 0 auto; width: auto; padding: 11px 14px; }
 
 /* ---------- tab bar ---------- */
 .tabbar {

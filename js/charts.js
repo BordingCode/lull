@@ -1,38 +1,94 @@
 // ===== Lull — tiny inline-SVG charts (no libraries) =====
-import { DAY, MIN, dur, clock } from './util.js?v=19';
+import { DAY, HOUR, MIN, dur, clock } from './util.js?v=21';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
 /**
- * One 24-hour bar: sleep blocks over a light "awake" track, plus optional
- * feed/diaper ticks. Pure markup, so it works in a service-worker cached page.
+ * A sleep bar over any window (24 h by default), starting at `from`: sleep
+ * blocks over a light "awake" track, plus optional feed/diaper ticks. Naps and
+ * night sleep get their own colours; 19:00–07:00 has a darker background.
  */
-export function timeline(blocks, dayStart, opts = {}) {
-  const { feeds = [], diapers = [], h = 30, showNight = true } = opts;
+export function timeline(blocks, from, opts = {}) {
+  const { feeds = [], diapers = [], h = 30, showNight = true, span = DAY } = opts;
   const W = 1000, H = h;
-  const x = (ms) => ((ms - dayStart) / DAY) * W;
-  let out = `<svg class="tl" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="24 hour sleep chart">`;
+  const x = (ms) => ((ms - from) / span) * W;
+  let out = `<svg class="tl" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Sleep chart">`;
   out += `<rect x="0" y="0" width="${W}" height="${H}" fill="var(--bg-3)"/>`;
-  if (showNight) {
-    const n = (W / 24);
-    out += `<rect x="0" y="0" width="${n * 7}" height="${H}" fill="var(--bg)" opacity=".55"/>`;
-    out += `<rect x="${n * 19}" y="0" width="${n * 5}" height="${H}" fill="var(--bg)" opacity=".55"/>`;
-  }
-  for (let i = 3; i < 24; i += 3) {
-    out += `<line x1="${(W / 24) * i}" y1="0" x2="${(W / 24) * i}" y2="${H}" stroke="var(--line)" stroke-width="1"/>`;
+  // walk whole clock hours across the window, so shading and grid follow the real clock
+  const first = new Date(from); first.setMinutes(0, 0, 0);
+  for (let t = first.getTime(); t < from + span; t += HOUR) {
+    const hr = new Date(t).getHours();
+    if (showNight && (hr >= 19 || hr < 7)) {
+      const a = Math.max(x(t), 0), b = Math.min(x(t + HOUR), W);
+      if (b > a) out += `<rect x="${a.toFixed(1)}" y="0" width="${(b - a + 0.5).toFixed(1)}" height="${H}" fill="var(--bg)" opacity=".55"/>`;
+    }
+    if (hr % 3 === 0 && t > from) {
+      out += `<line x1="${x(t).toFixed(1)}" y1="0" x2="${x(t).toFixed(1)}" y2="${H}" stroke="var(--line)" stroke-width="1"/>`;
+    }
   }
   for (const b of blocks) {
     const w = Math.max(2, x(b.end) - x(b.start));
     out += `<rect x="${x(b.start).toFixed(1)}" y="0" width="${w.toFixed(1)}" height="${H}" rx="3"
-            fill="var(--accent)" opacity="${b.ongoing ? .72 : 1}"/>`;
+            fill="${b.night === false ? 'var(--nap)' : 'var(--accent)'}" opacity="${b.ongoing ? .72 : 1}"/>`;
   }
   for (const f of feeds)   out += `<circle cx="${x(f).toFixed(1)}" cy="${H - 5}" r="3.2" fill="var(--feed)"/>`;
   for (const d of diapers) out += `<circle cx="${x(d).toFixed(1)}" cy="5" r="3.2" fill="var(--diaper)"/>`;
   return out + '</svg>';
 }
 
-export const axis24 = () =>
-  `<div class="tl-axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>`;
+/** Hour labels under a timeline: five evenly spaced clock times across the window. */
+export function axis(from, span = DAY) {
+  const hh = (ms) => String(new Date(ms).getHours()).padStart(2, '0');
+  return `<div class="tl-axis">${[0, 1, 2, 3, 4].map(i => `<span>${hh(from + (span * i) / 4)}</span>`).join('')}</div>`;
+}
+
+/**
+ * One baby-day as a circle. The top is when the day started (the morning
+ * wake-up); it runs clockwise through the day and the night and closes at the
+ * next morning. A day still going is drawn as 24 hours, with a marker at "now".
+ *   day      a babyDay() summary
+ *   feeds / diapers   times to mark as dots inside the ring
+ *   center   HTML for the middle
+ */
+export function dayDial(day, { feeds = [], diapers = [], center = '' } = {}) {
+  const C = 150, R = 104, SW = 24, LBL = 136;
+  const span = day.ongoing ? Math.max(DAY, day.until - day.start + 30 * MIN) : day.end - day.start;
+  const ang = (ms) => ((ms - day.start) / span) * 2 * Math.PI - Math.PI / 2;
+  const pt = (r, a) => [C + r * Math.cos(a), C + r * Math.sin(a)].map(v => v.toFixed(1));
+  const arc = (r, t0, t1) => {
+    const a0 = ang(t0), a1 = Math.min(ang(t1), a0 + 2 * Math.PI - 0.0005);
+    const [x0, y0] = pt(r, a0), [x1, y1] = pt(r, a1);
+    return `M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1} ${y1}`;
+  };
+  const dayEnd = day.start + span;
+
+  let out = `<svg viewBox="0 0 300 300" role="img" aria-label="The day as a circle, starting at the morning wake-up">`;
+  out += `<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--ring-track)" stroke-width="${SW}"/>`;
+  // the night part of the day, from bedtime on, sits on a tinted track
+  if (day.bedtime) out += `<path d="${arc(R, day.bedtime, day.ongoing ? day.until : dayEnd)}" fill="none" stroke="var(--accent-soft)" stroke-width="${SW}"/>`;
+  for (const b of day.blocks) {
+    out += `<path d="${arc(R, b.start, Math.max(b.end, b.start + span / 720))}" fill="none" stroke-width="${SW}"
+            stroke="${b.night ? 'var(--accent)' : 'var(--nap)'}" opacity="${b.ongoing ? .72 : 1}"/>`;
+  }
+  // clock times round the outside, every 3 hours, kept clear of the start marker at the top
+  const first = new Date(day.start); first.setMinutes(0, 0, 0);
+  for (let t = first.getTime() + HOUR; t < dayEnd; t += HOUR) {
+    const hr = new Date(t).getHours();
+    if (hr % 3 || t - day.start < span * 0.04 || dayEnd - t < span * 0.04) continue;
+    const [lx, ly] = pt(LBL, ang(t)), [t0x, t0y] = pt(R + SW / 2 + 2, ang(t)), [t1x, t1y] = pt(R + SW / 2 + 7, ang(t));
+    out += `<line x1="${t0x}" y1="${t0y}" x2="${t1x}" y2="${t1y}" stroke="var(--fg-faint)" stroke-width="1.5"/>`;
+    out += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="var(--fg-faint)">${String(hr).padStart(2, '0')}</text>`;
+  }
+  const [sx, sy] = pt(LBL, -Math.PI / 2);
+  out += `<text x="${sx}" y="${Number(sy) - 2}" text-anchor="middle" dominant-baseline="central" font-size="16">☀️</text>`;
+  for (const f of feeds)   { const [x, y] = pt(R - SW / 2 - 8, ang(f)); out += `<circle cx="${x}" cy="${y}" r="4" fill="var(--feed)"/>`; }
+  for (const d of diapers) { const [x, y] = pt(R - SW / 2 - 19, ang(d)); out += `<circle cx="${x}" cy="${y}" r="4" fill="var(--diaper)"/>`; }
+  if (day.ongoing) {
+    const [n0x, n0y] = pt(R - SW / 2 - 3, ang(day.until)), [n1x, n1y] = pt(R + SW / 2 + 3, ang(day.until));
+    out += `<line x1="${n0x}" y1="${n0y}" x2="${n1x}" y2="${n1y}" stroke="var(--fg)" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  return `<div class="dial">${out}</svg><div class="dial-c">${center}</div></div>`;
+}
 
 /** Horizontal meter with an optional "recommended band" marker pair. */
 export function meter(valueMin, bandHours) {
