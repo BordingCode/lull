@@ -1,8 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=21';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=21';
-import { esc } from './charts.js?v=21';
-import { MEASURES } from './growth.js?v=21';
+import * as store from './store.js?v=23';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=23';
+import { esc } from './charts.js?v=23';
+import { isNightSleep } from './predict.js?v=23';
+import { MEASURES } from './growth.js?v=23';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -134,6 +135,29 @@ export function sleepSheet(ev, { onDone } = {}) {
     sheet.querySelector('#s-del')?.addEventListener('click', async () => {
       await store.deleteEvent(ev.id); closeIt(); toast('Deleted'); onDone?.();
     });
+  });
+}
+
+/* ---------- sleep details (tapped in the day circle) ---------- */
+export function sleepInfo(ev, { onDone } = {}) {
+  const night = ev.end ? isNightSleep(ev) : new Date(ev.start).getHours() >= 18 || new Date(ev.start).getHours() < 5;
+  const mins = ((ev.end || Date.now()) - ev.start) / MIN;
+  const day = (ms) => startOfDay(ms) === startOfDay(Date.now()) ? '' : ` <small>${new Date(ms).toLocaleDateString(undefined, { weekday: 'short' })}</small>`;
+  const html = `
+    <h3>${night ? '🌛 Night sleep' : '😴 Nap'}</h3>
+    <div class="info">
+      <div><span>Fell asleep</span><b>${clock(ev.start)}${day(ev.start)}</b></div>
+      <div><span>Woke up</span><b>${ev.end ? clock(ev.end) + day(ev.end) : 'Still asleep'}</b></div>
+      <div><span>${ev.end ? 'Length' : 'Asleep for'}</span><b>${dur(mins)}</b></div>
+      <div class="note"><span>Note</span>${ev.note ? `<p>${esc(ev.note)}</p>` : '<p class="faint">No note</p>'}</div>
+    </div>
+    <div class="row">
+      <button class="btn ghost" id="si-close">Close</button>
+      <button class="btn" id="si-edit">Edit</button>
+    </div>`;
+  openSheet(html, (sheet, closeIt) => {
+    sheet.querySelector('#si-close').addEventListener('click', closeIt);
+    sheet.querySelector('#si-edit').addEventListener('click', () => sleepSheet(ev, { onDone }));
   });
 }
 

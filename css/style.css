@@ -278,8 +278,19 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 .dial-c b { font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .dial-c span { font-size: 12px; color: var(--fg-faint); }
 .dial-c .when { margin-top: 8px; font-size: 13px; color: var(--fg-dim); }
-.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 12px; color: var(--fg-faint); margin: 6px 0 2px; }
-.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.dial-hit { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dial-hit:focus { outline: none; }                     /* no square box round a tapped arc */
+.dial-hit:focus-visible { stroke: var(--fg-faint); stroke-opacity: .35; }   /* keyboard users still see where they are */
+.info { margin-bottom: 14px; }
+.info > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+              padding: 11px 2px; border-bottom: 1px solid var(--line); }
+.info span { color: var(--fg-dim); font-size: 14px; }
+.info b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.info b small { font-size: 12px; font-weight: 500; color: var(--fg-faint); }
+.info .note { display: block; border-bottom: 0; }
+.info .note p { margin: 4px 0 0; font-size: 15px; }
+.dial-legend { justify-content: center; gap: 4px 14px; font-size: 12px; margin: 6px 0 2px; }
+.dial-legend i { width: 9px; height: 9px; border-radius: 50%; }
 .guess { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
 .guess span { flex: 1; font-size: 13px; color: var(--fg-dim); }
 .guess button { flex: 0 0 auto; width: auto; padding: 9px 13px; font-size: 14px; }

@@ -1,17 +1,17 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=21';
-import * as sheets from './sheets.js?v=21';
-import * as sounds from './sounds.js?v=21';
-import * as notify from './notify.js?v=21';
-import * as cloud from './cloud.js?v=21';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=21';
-import { band, ageDays, BANDS } from './science.js?v=21';
-import { trend } from './stats.js?v=21';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=21';
-import * as growth from './growth.js?v=21';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=21';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=21';
-import { looksLikeEmail } from './vault.js?v=21';
+import * as store from './store.js?v=23';
+import * as sheets from './sheets.js?v=23';
+import * as sounds from './sounds.js?v=23';
+import * as notify from './notify.js?v=23';
+import * as cloud from './cloud.js?v=23';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=23';
+import { band, ageDays, BANDS } from './science.js?v=23';
+import { trend } from './stats.js?v=23';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=23';
+import * as growth from './growth.js?v=23';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=23';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=23';
+import { looksLikeEmail } from './vault.js?v=23';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -256,7 +256,7 @@ function logScreen() {
       ${dayDial(d, { center,
         feeds: evs.filter(e => e.type === 'feed' && inDay(e)).map(e => e.start),
         diapers: evs.filter(e => e.type === 'diaper' && inDay(e)).map(e => e.start) })}
-      <div class="legend"><span><i style="background:var(--nap)"></i>Nap</span><span><i style="background:var(--accent)"></i>Night</span>
+      <div class="legend dial-legend"><span><i style="background:var(--nap)"></i>Nap</span><span><i style="background:var(--accent)"></i>Night</span>
         <span><i style="background:var(--feed)"></i>Feed</span><span><i style="background:var(--diaper)"></i>Diaper</span></div>
       ${guessNote}${nightNote}
     </div>
@@ -410,8 +410,8 @@ function trendSection(evs, now) {
   return head + `<p class="faint" style="margin:0 2px 8px">${sub} · complete days only · empty = nothing logged.</p>`
     + card('Total sleep', 'sleepMin', hm,
         trendBars(points, { value: p => p.sleepMin, inner: p => p.nightMin, band: sleepBand,
-                            color: 'var(--accent)', fmt: hm, label }),
-        `<div class="legend"><span>${sw('var(--accent)')}night</span><span>${sw('var(--accent)', .5)}naps</span>
+                            color: 'var(--accent)', outer: 'var(--nap)', fmt: hm, label }),
+        `<div class="legend"><span>${sw('var(--accent)')}night</span><span>${sw('var(--nap)')}naps</span>
          ${sleepBand ? `<span>${sw('var(--fg-faint)', .3)}age guide</span>` : ''}</div>`)
     + card('Longest night stretch', 'longestNightMin', hm,
         trendBars(points, { value: p => p.longestNightMin, color: 'var(--accent)', fmt: hm, label }),
@@ -855,6 +855,15 @@ function wireScreen() {
   });
   screen.querySelector('#log-daystart')?.addEventListener('click', () => openDayStart());
   screen.querySelector('#fix-daystart')?.addEventListener('click', () => openDayStart());
+  // tap a sleep (or a nap's time) in the day circle to see its details
+  screen.querySelectorAll('[data-sleep]').forEach(el => {
+    const open = () => {
+      const ev = store.events().find(e => e.id === el.dataset.sleep);
+      if (ev) sheets.sleepInfo(ev, { onDone: render });
+    };
+    el.addEventListener('click', open);
+    el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
   screen.querySelector('#add-night')?.addEventListener('click', (e) => {
     // suggest 19:30 (or right after the last nap, if later) until the next morning's wake-up
     const from = Number(e.currentTarget.dataset.from), to = Number(e.currentTarget.dataset.to);

@@ -1,5 +1,5 @@
 // ===== Lull — tiny inline-SVG charts (no libraries) =====
-import { DAY, HOUR, MIN, dur, clock } from './util.js?v=21';
+import { DAY, HOUR, MIN, dur, clock } from './util.js?v=23';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
@@ -46,23 +46,27 @@ export function axis(from, span = DAY) {
  * One baby-day as a circle. The top is when the day started (the morning
  * wake-up); it runs clockwise through the day and the night and closes at the
  * next morning. A day still going is drawn as 24 hours, with a marker at "now".
+ * Every nap gets its start and end time (09:10) just outside the ring, and every
+ * sleep is tappable (data-sleep="<id>") to show its details.
  *   day      a babyDay() summary
  *   feeds / diapers   times to mark as dots inside the ring
  *   center   HTML for the middle
  */
 export function dayDial(day, { feeds = [], diapers = [], center = '' } = {}) {
-  const C = 150, R = 104, SW = 24, LBL = 136;
+  const C = 150, R = 104, SW = 24, OUT = R + SW / 2;
   const span = day.ongoing ? Math.max(DAY, day.until - day.start + 30 * MIN) : day.end - day.start;
   const ang = (ms) => ((ms - day.start) / span) * 2 * Math.PI - Math.PI / 2;
   const pt = (r, a) => [C + r * Math.cos(a), C + r * Math.sin(a)].map(v => v.toFixed(1));
-  const arc = (r, t0, t1) => {
-    const a0 = ang(t0), a1 = Math.min(ang(t1), a0 + 2 * Math.PI - 0.0005);
+  const arcA = (r, a0, a1) => {
+    a1 = Math.min(a1, a0 + 2 * Math.PI - 0.0005);
     const [x0, y0] = pt(r, a0), [x1, y1] = pt(r, a1);
     return `M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1} ${y1}`;
   };
+  const arc = (r, t0, t1) => arcA(r, ang(t0), ang(t1));
   const dayEnd = day.start + span;
+  const TOP = -Math.PI / 2, END = 1.5 * Math.PI;
 
-  let out = `<svg viewBox="0 0 300 300" role="img" aria-label="The day as a circle, starting at the morning wake-up">`;
+  let out = `<svg viewBox="-22 -10 344 320" role="img" aria-label="The day as a circle, starting at the morning wake-up">`;
   out += `<circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="var(--ring-track)" stroke-width="${SW}"/>`;
   // the night part of the day, from bedtime on, sits on a tinted track
   if (day.bedtime) out += `<path d="${arc(R, day.bedtime, day.ongoing ? day.until : dayEnd)}" fill="none" stroke="var(--accent-soft)" stroke-width="${SW}"/>`;
@@ -70,22 +74,70 @@ export function dayDial(day, { feeds = [], diapers = [], center = '' } = {}) {
     out += `<path d="${arc(R, b.start, Math.max(b.end, b.start + span / 720))}" fill="none" stroke-width="${SW}"
             stroke="${b.night ? 'var(--accent)' : 'var(--nap)'}" opacity="${b.ongoing ? .72 : 1}"/>`;
   }
-  // clock times round the outside, every 3 hours, kept clear of the start marker at the top
+
+  /* --- labels round the outside: nap times first, then clock hours where there's room --- */
+  // how much room a label needs along the ring: a whole "09:10" at the top/bottom, one line-height at the sides
+  const room = (a, w) => (w * Math.abs(Math.sin(a)) + 13 * Math.abs(Math.cos(a))) / (OUT + 10);
+  const labels = [];
+  for (const b of day.blocks) {
+    if (b.night) continue;
+    labels.push({ at: ang(b.start), a: ang(b.start), text: clock(b.start), id: b.id });
+    if (!b.ongoing) labels.push({ at: ang(b.end), a: ang(b.end), text: clock(b.end), id: b.id });
+  }
+  labels.sort((p, q) => p.a - q.a);
+  // nudge apart any that would overlap, keeping clear of the ☀️ at the top (both ends of the circle)
+  for (let pass = 0; pass < 40; pass++) {
+    let moved = false;
+    labels.forEach((L, i) => {
+      if (i === 0) {
+        const need = (room(L.a, 30) + room(TOP, 26)) / 2;
+        if (L.a - TOP < need) { L.a = TOP + need; moved = true; }
+      } else {
+        const P = labels[i - 1], need = (room(L.a, 30) + room(P.a, 30)) / 2, gap = L.a - P.a;
+        if (gap < need) { P.a -= (need - gap) / 2; L.a += (need - gap) / 2; moved = true; }
+      }
+    });
+    const last = labels[labels.length - 1];
+    if (last) {
+      const need = (room(last.a, 30) + room(END, 26)) / 2;
+      if (END - last.a < need) { last.a = END - need; moved = true; }
+    }
+    if (!moved) break;
+  }
+  const textAt = (a, r, txt, attrs) => {
+    const c = Math.cos(a), anchor = c > 0.35 ? 'start' : c < -0.35 ? 'end' : 'middle';
+    const [x, y] = pt(anchor === 'middle' ? r + 6 : r, a);
+    return `<text x="${x}" y="${y}" text-anchor="${anchor}" dominant-baseline="central" ${attrs}>${txt}</text>`;
+  };
+  for (const L of labels) {
+    const [t0x, t0y] = pt(OUT + 1, L.at), [t1x, t1y] = pt(OUT + 6, L.at);
+    out += `<line x1="${t0x}" y1="${t0y}" x2="${t1x}" y2="${t1y}" stroke="var(--nap)" stroke-width="2"/>`;
+    out += textAt(L.a, OUT + 9, L.text, `font-size="11.5" font-weight="700" fill="var(--nap)" data-sleep="${L.id}" class="dial-hit"`);
+  }
+  // clock hours every 3 h, only where no nap time or the ☀️ is in the way
   const first = new Date(day.start); first.setMinutes(0, 0, 0);
   for (let t = first.getTime() + HOUR; t < dayEnd; t += HOUR) {
-    const hr = new Date(t).getHours();
-    if (hr % 3 || t - day.start < span * 0.04 || dayEnd - t < span * 0.04) continue;
-    const [lx, ly] = pt(LBL, ang(t)), [t0x, t0y] = pt(R + SW / 2 + 2, ang(t)), [t1x, t1y] = pt(R + SW / 2 + 7, ang(t));
+    const hr = new Date(t).getHours(), a = ang(t);
+    if (hr % 3 || a - TOP < room(a, 16) + room(TOP, 26) / 2 || END - a < room(a, 16) + room(END, 26) / 2) continue;
+    if (labels.some(L => Math.abs(L.a - a) < (room(a, 16) + room(L.a, 30)) / 2 + 0.02)) continue;
+    const [t0x, t0y] = pt(OUT + 2, a), [t1x, t1y] = pt(OUT + 7, a);
     out += `<line x1="${t0x}" y1="${t0y}" x2="${t1x}" y2="${t1y}" stroke="var(--fg-faint)" stroke-width="1.5"/>`;
-    out += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" font-size="12" fill="var(--fg-faint)">${String(hr).padStart(2, '0')}</text>`;
+    out += textAt(a, OUT + 10, String(hr).padStart(2, '0'), `font-size="12" fill="var(--fg-faint)"`);
   }
-  const [sx, sy] = pt(LBL, -Math.PI / 2);
+  const [sx, sy] = pt(OUT + 16, TOP);
   out += `<text x="${sx}" y="${Number(sy) - 2}" text-anchor="middle" dominant-baseline="central" font-size="16">☀️</text>`;
   for (const f of feeds)   { const [x, y] = pt(R - SW / 2 - 8, ang(f)); out += `<circle cx="${x}" cy="${y}" r="4" fill="var(--feed)"/>`; }
   for (const d of diapers) { const [x, y] = pt(R - SW / 2 - 19, ang(d)); out += `<circle cx="${x}" cy="${y}" r="4" fill="var(--diaper)"/>`; }
   if (day.ongoing) {
     const [n0x, n0y] = pt(R - SW / 2 - 3, ang(day.until)), [n1x, n1y] = pt(R + SW / 2 + 3, ang(day.until));
     out += `<line x1="${n0x}" y1="${n0y}" x2="${n1x}" y2="${n1y}" stroke="var(--fg)" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  // invisible, finger-sized tap targets over every sleep (a 20-minute nap is only a sliver otherwise)
+  for (const b of day.blocks) {
+    const a0 = ang(b.start), a1 = ang(Math.max(b.end, b.start + span / 720)), pad = Math.max(0, (0.16 - (a1 - a0)) / 2);
+    const what = `${b.night ? 'Night sleep' : 'Nap'} ${clock(b.start)} to ${b.ongoing ? 'now' : clock(b.end)}`;
+    out += `<path d="${arcA(R, a0 - pad, a1 + pad)}" fill="none" stroke="transparent" stroke-width="44" pointer-events="stroke"
+            class="dial-hit" data-sleep="${b.id}" role="button" tabindex="0" aria-label="${what}"/>`;
   }
   return `<div class="dial">${out}</svg><div class="dial-c">${center}</div></div>`;
 }
@@ -122,10 +174,11 @@ export { esc };
  * same reason as columns(): labels stay sharp at any width.
  *   value(p)  bar height, or null for "nothing logged" (drawn as a gap)
  *   inner(p)  optional darker part of the bar, drawn from the bottom
+ *   outer     colour for the rest of the bar above `inner` (default: `color`, faded)
  *   band(p)   optional [lo, hi] reference range, shaded behind the bar
  *   fmt(v)    how a number is written in labels and tooltips
  */
-export function trendBars(points, { value, inner, band, color, fmt, label }) {
+export function trendBars(points, { value, inner, band, color, outer, fmt, label }) {
   const n = points.length;
   if (!n) return '';
   const vals = points.map(value);
@@ -136,7 +189,7 @@ export function trendBars(points, { value, inner, band, color, fmt, label }) {
     const v = vals[i], b = band?.(p), iv = inner?.(p);
     return `<div class="tb" title="${esc(label(p))}: ${v == null ? 'nothing logged' : esc(fmt(v))}">
       ${b ? `<i class="tband" style="bottom:${pct(b[0])}%;height:${(pct(b[1]) - pct(b[0])).toFixed(1)}%"></i>` : ''}
-      ${v == null ? '' : `<b style="height:${pct(v)}%;background:${color};${iv != null ? 'opacity:.5' : ''}"></b>`}
+      ${v == null ? '' : `<b style="height:${pct(v)}%;background:${outer || color};${iv != null && !outer ? 'opacity:.5' : ''}"></b>`}
       ${v == null || iv == null ? '' : `<b style="height:${pct(iv)}%;background:${color}"></b>`}
     </div>`;
   }).join('');

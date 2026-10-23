@@ -24,7 +24,8 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
 - **Log** — one *day* at a time, the way parents live it: from the morning
   wake-up, through the day and the night after it, to the next morning. The day
   is drawn as a **circle** that starts at the top with the wake-up (naps in blue,
-  night in purple, feed and diaper dots), followed by **day sleep, night sleep,
+  night in purple, feed and diaper dots, every nap's start and end time round
+  the edge; tap any sleep for its start, end, length and note), followed by **day sleep, night sleep,
   awake and total sleep** with ▲/▼ against the day before (at the same point in
   the day, while today is still going). Then every entry, tap to correct, and
   buttons to backfill anything you forgot.
