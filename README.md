@@ -24,11 +24,16 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
   through previous days, and buttons to backfill anything you forgot.
 - **Patterns** — one 24-hour bar per day for 14 days, averages against the
   age-appropriate sleep range, your baby's own measured awake window, and
-  feeds/diapers per day.
+  feeds/diapers per day. **Over time** charts total sleep (night vs naps,
+  against the age guide), longest night stretch, feeds and diapers per day over
+  2 weeks, a month, 3 months or everything (weekly averages past 45 days).
+- **Growth** — weight, length and head circumference in kg/cm, plotted on the
+  WHO Child Growth Standards (0–2 years, girls/boys) with the percentile in
+  plain words.
 - **Sounds** — white noise, brown noise, rain, heartbeat and a lullaby, all
   synthesised in the browser (no downloads, no loop seam), with volume and a
   fade-out sleep timer.
-- **Settings** — name, birth date, ml/oz, three colour schemes (dark, light and
+- **Settings** — name, birth date, girl/boy (for the growth curves), ml/oz, three colour schemes (dark, light and
   a dim warm **night mode** for 3am), reminders, and backup/restore.
 
 ## How the nap prediction works

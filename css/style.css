@@ -213,6 +213,40 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 .colbar { width: 100%; max-width: 20px; border-radius: 4px 4px 2px 2px; min-height: 2px; }
 .col span { font-size: 10px; color: var(--fg-faint); line-height: 1; }
 
+/* trend bars (Patterns → Over time) */
+.tchart { position: relative; padding-top: 8px; }
+.tgrid { position: absolute; left: 0; right: 0; top: 8px; height: 110px; pointer-events: none; z-index: 1; }
+.tgrid span { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--fg-faint); opacity: .9; line-height: 1; }
+.tgrid em { position: absolute; left: 0; top: -7px; font-style: normal; font-size: 10px; color: var(--fg-dim);
+            background: var(--bg-2); padding: 1px 4px; border-radius: 4px; }
+.tbars { display: flex; align-items: stretch; height: 110px; }
+.tb { flex: 1 1 0; min-width: 0; position: relative; }
+.tb b { position: absolute; bottom: 0; left: 1px; right: 1px; border-radius: 3px 3px 1px 1px; min-height: 2px; }
+.tbars.dense .tb b { left: 0; right: 0; border-radius: 1px; }
+.tband { position: absolute; left: 0; right: 0; background: var(--fg-faint); opacity: .16; }
+.tlabels { position: relative; height: 16px; margin-top: 4px; }
+.tlabels span { position: absolute; transform: translateX(-50%); font-size: 10px;
+                color: var(--fg-faint); white-space: nowrap; }
+.tlabels span:last-child { transform: translateX(-85%); }
+.trend-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.trend-head b { font-size: 15px; }
+.trend-head span { font-size: 12px; color: var(--fg-faint); text-align: right; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--fg-faint); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+/* WHO growth chart */
+.gchart { width: 100%; height: auto; display: block; }
+.gchart text { font-size: 10px; fill: var(--fg-faint); font-family: inherit; }
+.gchart text.p { font-size: 9px; }
+.gchart text.u { font-size: 9px; }
+.gstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.gstat { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; padding: 10px; cursor: pointer;
+         text-align: left; color: inherit; font: inherit; }
+.gstat[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.gstat small { display: block; font-size: 11px; color: var(--fg-faint); }
+.gstat b { display: block; font-size: 18px; color: var(--accent); font-variant-numeric: tabular-nums; margin: 2px 0; }
+.gstat span { font-size: 11.5px; color: var(--fg-dim); }
+
 /* ---------- entry list ---------- */
 .entry { display: flex; align-items: center; gap: 11px; padding: 10px 2px;
          border-bottom: 1px solid var(--line); cursor: pointer; }
@@ -222,6 +256,7 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 .entry .ic.sleep { background: var(--accent-soft); }
 .entry .ic.feed { background: var(--feed-soft); }
 .entry .ic.diaper { background: var(--diaper-soft); }
+.entry .ic.growth { background: var(--accent-soft); }
 .entry .body { flex: 1; min-width: 0; }
 .entry .body b { font-size: 14.5px; font-weight: 620; display: block; }
 .entry .body span { font-size: 12.5px; color: var(--fg-faint); }

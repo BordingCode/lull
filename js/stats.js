@@ -3,8 +3,8 @@
 // sleep that falls between 19:00 and 07:00 — the rest counts as day sleep, so
 // a long nap that bleeds into the evening is split honestly instead of guessed.
 
-import { MIN, DAY, startOfDay, overlapMin } from './util.js?v=15';
-import { isNightSleep } from './predict.js?v=15';
+import { MIN, DAY, startOfDay, overlapMin } from './util.js?v=16';
+import { isNightSleep } from './predict.js?v=16';
 
 const NIGHT_FROM = 19, NIGHT_TO = 7;
 
@@ -81,4 +81,67 @@ export function averages(days) {
     diapers: avg(d => d.diapers.total),
     longestMin: avg(d => d.longestMin),
   };
+}
+
+/* ---------- trends over weeks and months (Patterns → "Over time") ---------- */
+
+/** The calendar night a sleep belongs to: 02:00 on the 5th is the night of the 4th. */
+const nightOf = (ms) => startOfDay(ms - 12 * 3600000);
+
+/** Longest single night sleep (not clipped at midnight), keyed by night. */
+function longestNights(events) {
+  const out = new Map();
+  for (const s of events) {
+    if (s.type !== 'sleep' || !isNightSleep(s)) continue;
+    const k = nightOf(s.start), m = (s.end - s.start) / MIN;
+    if (m > (out.get(k) || 0)) out.set(k, m);
+  }
+  return out;
+}
+
+const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
+/**
+ * One point per day (spans up to 45 days) or per week (longer), complete days
+ * only. A metric is null when nothing of that kind was logged, so an
+ * untracked day reads as a gap — never as "0 hours of sleep".
+ * `span` is a number of days, or 'all' for everything since the first log.
+ */
+export function trend(events, span, nowMs = Date.now()) {
+  const today = startOfDay(nowMs);
+  const logged = events.filter(e => e.type === 'sleep' || e.type === 'feed' || e.type === 'diaper');
+  if (!logged.length) return { step: 1, points: [] };
+  const first = startOfDay(Math.min(...logged.map(e => e.start)));
+  const from = Math.max(first, span === 'all' ? first : startOfDay(today - span * DAY + 12 * 3600000));
+
+  const nights = longestNights(logged);
+  const days = [];
+  // step by calendar day via noon, so a daylight-saving change can't skip one
+  for (let d = from; d < today; d = startOfDay(d + DAY + 12 * 3600000)) {
+    const s = daySummary(logged, d, nowMs);
+    days.push({
+      dayStart: d,
+      sleepMin: s.blocks.length ? s.sleepMin : null,
+      nightMin: s.blocks.length ? s.nightMin : null,
+      dayMin:   s.blocks.length ? s.dayMin : null,
+      longestNightMin: nights.get(d) ?? null,
+      feeds:    s.feeds.count || null,
+      bottleMl: s.feeds.bottleMl || null,
+      diapers:  s.diapers.total || null,
+      wet:      s.diapers.total ? s.diapers.wet : null,
+      dirty:    s.diapers.total ? s.diapers.dirty : null,
+    });
+  }
+
+  const step = days.length > 45 ? 7 : 1;
+  const keys = ['sleepMin', 'nightMin', 'dayMin', 'longestNightMin', 'feeds', 'bottleMl', 'diapers', 'wet', 'dirty'];
+  const points = [];
+  // bucket from the newest day backwards, so the latest week is a whole week
+  for (let end = days.length; end > 0; end -= step) {
+    const chunk = days.slice(Math.max(0, end - step), end);
+    const p = { start: chunk[0].dayStart, days: chunk.length };
+    for (const k of keys) p[k] = mean(chunk.map(c => c[k]).filter(v => v != null));
+    points.unshift(p);
+  }
+  return { step, points };
 }

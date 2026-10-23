@@ -35,6 +35,18 @@ proportionally rather than being guessed into one bucket (see `js/stats.js`).
 
 ## Deliberately not in the app
 - No sleep-training programme, schedule to follow, or "your baby should…" advice.
-- No percentile or developmental scoring.
+- No developmental scoring. The only percentiles are growth (weight, length,
+  head) against the WHO tables below.
 - No claims about safe sleep practice; that belongs with a health visitor,
   midwife or doctor.
+
+## Growth curves
+WHO Child Growth Standards (2006), birth to 24 months: weight-for-age,
+length-for-age and head-circumference-for-age, girls and boys. The LMS tables in
+`docs/who/` are the CSV files CDC republishes at
+<https://www.cdc.gov/growthcharts/who-data-files.htm>. The weight tables were
+cross-checked against the LMS values printed by Merck Manuals' WHO calculator.
+`tools/build_who.py` turns them into `js/who.js`, and `tests/growth.test.mjs`
+checks that Lull's percentiles reproduce WHO's own published percentile values.
+Between whole months L, M and S are interpolated linearly. A national chart
+(e.g. the one a Danish health visitor uses) can differ slightly from WHO.

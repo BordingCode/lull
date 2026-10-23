@@ -1,18 +1,21 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=15';
-import * as sheets from './sheets.js?v=15';
-import * as sounds from './sounds.js?v=15';
-import * as notify from './notify.js?v=15';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=15';
-import { band, ageDays, BANDS } from './science.js?v=15';
-import { daySummary, lastDays, averages } from './stats.js?v=15';
-import { timeline, axis24, meter, columns, esc } from './charts.js?v=15';
-import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=15';
+import * as store from './store.js?v=16';
+import * as sheets from './sheets.js?v=16';
+import * as sounds from './sounds.js?v=16';
+import * as notify from './notify.js?v=16';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=16';
+import { band, ageDays, BANDS } from './science.js?v=16';
+import { daySummary, lastDays, averages, trend } from './stats.js?v=16';
+import * as growth from './growth.js?v=16';
+import { timeline, axis24, meter, columns, trendBars, growthChart, esc } from './charts.js?v=16';
+import { MIN, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=16';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
 let logDay = startOfDay(Date.now());     // which day the Log screen is showing
 let tickTimer = null;
+let trendSpan = 14;                      // Patterns → Over time: 14 / 30 / 90 days or 'all'
+let growthMeasure = 'weight';            // which WHO chart the Growth screen shows
 
 /* ---------------- settings helpers ---------------- */
 const S = () => store.settings();
@@ -174,12 +177,19 @@ function entryRow(e) {
     title = 'Diaper';
     sub = { wet: 'Wet', dirty: 'Dirty', both: 'Wet + dirty', dry: 'Dry' }[e.kind] || '';
   }
+  else if (e.type === 'growth') {
+    cls = 'growth'; ic = '📏'; title = 'Measurement';
+    sub = Object.entries(growth.MEASURES).filter(([, m]) => e[m.field] > 0)
+      .map(([k, m]) => kgCm(k, e[m.field])).join(' · ');
+  }
   if (e.note) sub = sub ? `${sub} · ${esc(e.note)}` : esc(e.note);
   const ongoing = e.type === 'sleep' && !e.end;
   return `<div class="entry ${ongoing ? 'ongoing' : ''}" data-edit="${e.id}">
       <div class="ic ${cls}">${ic}</div>
       <div class="body"><b>${title}</b><span>${sub}</span></div>
-      <div class="time">${ongoing ? dur((now - e.start) / MIN) : clock(e.start)}</div>
+      <div class="time">${ongoing ? dur((now - e.start) / MIN)
+        : e.type === 'growth' ? new Date(e.start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+        : clock(e.start)}</div>
     </div>`;
 }
 
@@ -302,9 +312,135 @@ function patternsScreen() {
     <div class="card">${rows}
       <div class="faint" style="margin-top:6px">Purple = asleep. Darker background = night (19:00–07:00).</div>
     </div>
-    ${totalCard}${windowCard}${feedCard}
+    ${totalCard}${trendSection(evs, now)}${windowCard}${feedCard}
     <p class="faint" style="margin:14px 2px 0">Age guides are pediatric-sleep consensus ranges, not medical advice —
     sources are listed in the app's README. Every baby is their own curve.</p>`;
+}
+
+/* ---------------- patterns → over time ---------------- */
+function trendSection(evs, now) {
+  const { step, points } = trend(evs, trendSpan, now);
+  const spans = sheets.chipRow('span', [{ v: '14', t: '2 weeks' }, { v: '30', t: 'Month' },
+                                        { v: '90', t: '3 months' }, { v: 'all', t: 'All' }], String(trendSpan));
+  const head = `<h2 class="sec">Over time</h2>${spans}`;
+  if (points.length < 2) {
+    return head + `<div class="card"><div class="faint">A couple of full days of logging and the trends appear here.</div></div>`;
+  }
+  const per = step === 7 ? 'week' : 'day';
+  const label = (p) => {
+    const t = new Date(p.start).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    return step === 7 ? `wk ${t}` : t;
+  };
+  const avgOf = (k) => { const v = points.map(p => p[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+  // first quarter vs last quarter of the range: is it going up or down?
+  const change = (k, fmt) => {
+    const v = points.map(p => p[k]).filter(x => x != null);
+    if (v.length < 4) return '';
+    const q = Math.max(1, Math.floor(v.length / 4));
+    const d = v.slice(-q).reduce((a, b) => a + b, 0) / q - v.slice(0, q).reduce((a, b) => a + b, 0) / q;
+    return Math.abs(d) < 1e-9 ? ' · steady' : ` · ${d > 0 ? '▲' : '▼'} ${fmt(Math.abs(d))}`;
+  };
+  const hm = (m) => dur(m);
+  const n1 = (v) => (Math.round(v * 10) / 10).toString();
+  const sleepBand = birthMs() ? (p) => band(birthMs(), p.start + p.days * DAY / 2).total.map(h => h * 60) : null;
+  const sub = step === 7 ? 'Weekly average per day' : 'Each bar is one day';
+
+  const card = (title, k, fmt, chart, legend = '') => {
+    const a = avgOf(k);
+    return `<div class="card tight">
+      <div class="trend-head"><b>${title}</b><span>avg ${a == null ? '—' : fmt(a)}${change(k, fmt)}</span></div>
+      ${chart}${legend}</div>`;
+  };
+  const sw = (c, op = 1) => `<i style="background:${c};opacity:${op}"></i>`;
+
+  return head + `<p class="faint" style="margin:0 2px 8px">${sub} · complete days only · empty = nothing logged.</p>`
+    + card('Total sleep', 'sleepMin', hm,
+        trendBars(points, { value: p => p.sleepMin, inner: p => p.nightMin, band: sleepBand,
+                            color: 'var(--accent)', fmt: hm, label }),
+        `<div class="legend"><span>${sw('var(--accent)')}night</span><span>${sw('var(--accent)', .5)}naps</span>
+         ${sleepBand ? `<span>${sw('var(--fg-faint)', .3)}age guide</span>` : ''}</div>`)
+    + card('Longest night stretch', 'longestNightMin', hm,
+        trendBars(points, { value: p => p.longestNightMin, color: 'var(--accent)', fmt: hm, label }),
+        `<div class="legend"><span>The longest unbroken night sleep, counted for the evening it began.</span></div>`)
+    + card('Feeds per day', 'feeds', n1,
+        trendBars(points, { value: p => p.feeds, color: 'var(--feed)', fmt: n1, label }),
+        avgOf('bottleMl') ? `<div class="legend"><span>Bottle: avg ${amount(Math.round(avgOf('bottleMl')))} per day on bottle days</span></div>` : '')
+    + card('Diapers per day', 'diapers', n1,
+        trendBars(points, { value: p => p.diapers, inner: p => p.dirty, color: 'var(--diaper)', fmt: n1, label }),
+        `<div class="legend"><span>${sw('var(--diaper)', .5)}all</span><span>${sw('var(--diaper)')}dirty</span></div>`);
+}
+
+/* ---------------- growth screen ---------------- */
+const kgCm = (k, v) => k === 'weight' ? `${v.toFixed(2).replace(/0$/, '')} kg` : `${v.toFixed(1)} cm`;
+
+function growthScreen() {
+  const now = Date.now();
+  const evs = store.events();
+  const sex = S().sex;
+  const birth = birthMs();
+  const entries = evs.filter(e => e.type === 'growth').sort((a, b) => b.start - a.start);
+  const ageNow = birth ? growth.ageMonths(birth, now) : null;
+
+  if (!sex) {
+    return `<h2 class="sec">Growth</h2>
+      <div class="card">
+        <b>Is ${esc(babyName())} a girl or a boy?</b>
+        <p class="muted">The WHO growth curves are different for girls and boys, so Lull needs this once
+        to compare measurements. You can change it later in settings.</p>
+        <div class="row"><button class="btn ghost" data-sex="girl">Girl</button>
+        <button class="btn ghost" data-sex="boy">Boy</button></div>
+      </div>`;
+  }
+
+  // latest value of each measure + where it sits on the WHO curve
+  const tiles = Object.entries(growth.MEASURES).map(([k, m]) => {
+    const last = growth.series(evs, k).at(-1);
+    const a = last && birth ? growth.assess(k, sex, birth, last.start, last[m.field]) : null;
+    return `<button class="gstat" data-measure="${k}" aria-pressed="${String(k === growthMeasure)}">
+      <small>${m.label}</small>
+      <b>${last ? kgCm(k, last[m.field]) : '—'}</b>
+      <span>${a ? `${growth.pctLabel(a.pct)} percentile` : last ? 'past the 2-year chart' : 'not measured'}</span>
+    </button>`;
+  }).join('');
+
+  let chart = '';
+  if (birth) {
+    const m = growth.MEASURES[growthMeasure];
+    const pts = growth.series(evs, growthMeasure)
+      .map(e => [growth.ageMonths(birth, e.start), e[m.field]])
+      .filter(([mo]) => mo >= 0 && mo <= growth.MAX_MONTHS);
+    // show a few months ahead of today, at least six, at most the WHO 0–24 range
+    const toMonths = Math.min(growth.MAX_MONTHS,
+      Math.max(6, Math.ceil(Math.max(ageNow, ...pts.map(p => p[0])) + 2)));
+    const curves = growth.CURVES.map(pct => ({ pct, pts: growth.curve(growthMeasure, sex, pct, toMonths) }));
+    const last = growth.series(evs, growthMeasure).at(-1);
+    const a = last ? growth.assess(growthMeasure, sex, birth, last.start, last[m.field]) : null;
+    chart = `<div class="card tight">
+      <div class="trend-head"><b>${m.label} for age · WHO ${sex === 'girl' ? 'girls' : 'boys'}</b>
+        <span>${a ? `${growth.pctLabel(a.pct)} percentile` : ''}</span></div>
+      ${growthChart({ curves, points: pts, toMonths, unit: m.unit, ageNow })}
+      <div class="legend"><span>${`<i style="background:var(--accent)"></i>`}${esc(babyName())}</span>
+        <span>Grey lines: 3rd, 15th, 50th, 85th, 97th percentile</span></div>
+      ${a ? `<p class="faint" style="margin:8px 0 0">${growth.pctLabel(a.pct)} percentile means that of 100 healthy
+        ${sex === 'girl' ? 'girls' : 'boys'} the same age, about ${Math.max(1, Math.min(99, Math.round(a.pct)))} measure less.
+        It is not a score — what matters is following a curve over time.</p>` : ''}
+    </div>`;
+  } else {
+    chart = `<div class="card"><div class="faint">Add a birth date in settings to see the growth curves.</div></div>`;
+  }
+
+  const list = entries.length ? `<h2 class="sec">Measurements</h2>
+    <div class="card">${entries.map(entryRow).join('')}</div>` : '';
+
+  return `<h2 class="sec">Growth</h2>
+    <div class="gstats">${tiles}</div>
+    ${chart}
+    <button class="btn" id="add-growth" style="margin-top:4px">+ Add measurement</button>
+    ${list}
+    ${ageNow > growth.MAX_MONTHS ? `<p class="faint">The WHO charts here cover birth to 2 years.</p>` : ''}
+    <p class="faint" style="margin:14px 2px 0">Curves: WHO Child Growth Standards (2006), birth to 2 years.
+    Your health visitor may use a national chart that differs slightly. A single measurement says little; a baby crossing two lines up or down is worth
+    mentioning to your health visitor or doctor. Not medical advice.</p>`;
 }
 
 /* ---------------- sounds screen ---------------- */
@@ -351,6 +487,10 @@ function openSettings() {
       <input id="st-birth" type="date" value="${s.birth ? new Date(s.birth).toISOString().slice(0, 10) : ''}" />
     </div>
     <div class="field">
+      <label>Growth curves</label>
+      ${sheets.chipRow('sex', [{ v: 'girl', t: 'Girl' }, { v: 'boy', t: 'Boy' }], s.sex)}
+    </div>
+    <div class="field">
       <label>Bottle unit</label>
       ${sheets.chipRow('unit', [{ v: 'ml', t: 'Millilitres' }, { v: 'oz', t: 'Ounces' }], unit())}
     </div>
@@ -391,6 +531,7 @@ function openSettings() {
     };
     sheet.querySelector('#st-name').addEventListener('change', save);
     sheet.querySelector('#st-birth').addEventListener('change', save);
+    sheet.querySelector('[data-chipgroup="sex"]').addEventListener('pick', e => { store.setSetting('sex', e.detail); render(); });
     sheet.querySelector('[data-chipgroup="unit"]').addEventListener('pick', e => store.setSetting('unit', e.detail));
     sheet.querySelector('[data-chipgroup="theme"]').addEventListener('pick', e => { store.setSetting('theme', e.detail); applyTheme(e.detail); });
 
@@ -459,7 +600,8 @@ function render() {
   screen.innerHTML = `<div class="screen">${
     tab === 'home' ? homeScreen() :
     tab === 'log' ? logScreen() :
-    tab === 'patterns' ? patternsScreen() : soundsScreen()}</div>`;
+    tab === 'patterns' ? patternsScreen() :
+    tab === 'growth' ? growthScreen() : soundsScreen()}</div>`;
   screen.scrollTop = keepScroll;
   document.querySelectorAll('#tabs button').forEach(b => {
     if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
@@ -513,6 +655,18 @@ function wireScreen() {
   screen.querySelectorAll('[data-sound]').forEach(btn => btn.addEventListener('click', () => {
     sounds.play(btn.dataset.sound); render();
   }));
+  screen.querySelector('[data-chipgroup="span"]')?.addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    trendSpan = c.dataset.value === 'all' ? 'all' : Number(c.dataset.value);
+    render();
+  });
+  screen.querySelectorAll('[data-sex]').forEach(b => b.addEventListener('click', async () => {
+    await store.setSetting('sex', b.dataset.sex); render();
+  }));
+  screen.querySelectorAll('[data-measure]').forEach(b => b.addEventListener('click', () => {
+    growthMeasure = b.dataset.measure; render();
+  }));
+  screen.querySelector('#add-growth')?.addEventListener('click', () => sheets.growthSheet(null, { onDone: render }));
   screen.querySelector('#vol')?.addEventListener('input', e => sounds.setVolume(e.target.value / 100));
   const tg = screen.querySelector('[data-chipgroup="timer"]');
   if (tg) {

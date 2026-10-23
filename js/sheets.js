@@ -1,7 +1,8 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=15';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=15';
-import { esc } from './charts.js?v=15';
+import * as store from './store.js?v=16';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=16';
+import { esc } from './charts.js?v=16';
+import { MEASURES } from './growth.js?v=16';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -237,11 +238,66 @@ export function diaperSheet(ev, { onDone } = {}) {
   });
 }
 
+/* ---------- growth (weight / length / head) ---------- */
+const dateValue = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+export function growthSheet(ev, { onDone } = {}) {
+  const isNew = !ev?.id;
+  const start = ev?.start ?? Date.now();
+  const num = (k) => {
+    const m = MEASURES[k];
+    return `<div class="field">
+      <label for="g-${k}">${m.label} (${m.unit})${k === 'length' ? ' — lying down' : k === 'head' ? ' — around the widest part' : ''}</label>
+      <input id="g-${k}" type="text" inputmode="decimal" autocomplete="off"
+             value="${ev?.[m.field] ?? ''}" placeholder="${k === 'weight' ? 'e.g. 6.45' : k === 'length' ? 'e.g. 62.5' : 'e.g. 40.5'}" />
+    </div>`;
+  };
+  const html = `
+    <h3>${isNew ? 'Add measurement' : 'Edit measurement'}</h3>
+    <div class="field">
+      <label for="g-date">Date measured</label>
+      <input id="g-date" type="date" value="${dateValue(start)}" max="${dateValue(Date.now())}" />
+    </div>
+    ${num('weight')}${num('length')}${num('head')}
+    <p class="faint" style="margin:-4px 0 12px">Fill in what you measured — one value is enough.</p>
+    <div class="field">
+      <label for="g-note">Note (optional)</label>
+      <input id="g-note" type="text" value="${esc(ev?.note || '')}" placeholder="e.g. health visitor, 3-month check" />
+    </div>
+    <button class="btn" id="g-save">${isNew ? 'Save measurement' : 'Save changes'}</button>
+    ${isNew ? '' : '<button class="btn danger" id="g-del" style="margin-top:8px">Delete this measurement</button>'}`;
+
+  openSheet(html, (sheet, closeIt) => {
+    sheet.querySelector('#g-save').addEventListener('click', async () => {
+      const dv = sheet.querySelector('#g-date').value;
+      if (!dv) { toast('Pick the date it was measured'); return; }
+      const rec = { ...(ev || {}), type: 'growth', start: new Date(dv + 'T12:00:00').getTime(),
+                    note: sheet.querySelector('#g-note').value.trim() || undefined };
+      let any = false;
+      for (const k of Object.keys(MEASURES)) {
+        const m = MEASURES[k], raw = sheet.querySelector('#g-' + k).value.replace(',', '.');
+        const v = raw === '' ? undefined : Number(raw);
+        if (v !== undefined && !(v >= m.min && v <= m.max)) {
+          toast(`${m.label} should be between ${m.min} and ${m.max} ${m.unit}`); return;
+        }
+        rec[m.field] = v; if (v !== undefined) any = true;
+      }
+      if (!any) { toast('Fill in at least one measurement'); return; }
+      await store.saveEvent(rec);
+      closeIt(); toast(isNew ? 'Measurement saved' : 'Measurement updated'); onDone?.();
+    });
+    sheet.querySelector('#g-del')?.addEventListener('click', async () => {
+      await store.deleteEvent(ev.id); closeIt(); toast('Deleted'); onDone?.();
+    });
+  });
+}
+
 /** Route an entry to the right editor. */
 export function editEvent(ev, opts = {}) {
   if (ev.type === 'sleep') return sleepSheet(ev, opts);
   if (ev.type === 'feed') return feedSheet(ev, opts);
   if (ev.type === 'diaper') return diaperSheet(ev, opts);
+  if (ev.type === 'growth') return growthSheet(ev, opts);
 }
 
 export { msFromTime, timeValue, chipRow, wireChips, wireNudges, picked };
