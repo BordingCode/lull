@@ -1,17 +1,17 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=23';
-import * as sheets from './sheets.js?v=23';
-import * as sounds from './sounds.js?v=23';
-import * as notify from './notify.js?v=23';
-import * as cloud from './cloud.js?v=23';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=23';
-import { band, ageDays, BANDS } from './science.js?v=23';
-import { trend } from './stats.js?v=23';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=23';
-import * as growth from './growth.js?v=23';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=23';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=23';
-import { looksLikeEmail } from './vault.js?v=23';
+import * as store from './store.js?v=24';
+import * as sheets from './sheets.js?v=24';
+import * as sounds from './sounds.js?v=24';
+import * as notify from './notify.js?v=24';
+import * as cloud from './cloud.js?v=24';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=24';
+import { band, ageDays, BANDS } from './science.js?v=24';
+import { trend } from './stats.js?v=24';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=24';
+import * as growth from './growth.js?v=24';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=24';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=24';
+import { looksLikeEmail } from './vault.js?v=24';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -714,7 +714,8 @@ function cloudSheet(mode, { fromOnboarding = false } = {}) {
       <input id="cl-pw2" type="password" autocomplete="new-password" />
     </div>` : ''}
     <p class="faint" style="margin:0 0 14px">${isNew
-      ? `Your logs are locked with your password <b>before</b> they leave this phone. Nobody else can read them,
+      ? `<b>Everything already logged on this phone is kept and uploaded.</b>
+         Your logs are locked with your password <b>before</b> they leave this phone. Nobody else can read them,
          not even whoever runs the server. That also means <b>a forgotten password can't be reset</b>, so write it
          down somewhere safe. Your email is only your username: Lull never sends you mail.`
       : `Your backup is merged with what's already on this phone. Nothing here is deleted.`}</p>

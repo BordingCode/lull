@@ -1,15 +1,15 @@
 // ===== Lull service worker =====
 // Bump CACHE (and the ?v= numbers in index.html) whenever a shell file changes,
 // or phones keep serving the old app.
-const CACHE = 'lull-v23';
+const CACHE = 'lull-v24';
 const SHELL = [
   './', './index.html',
-  './css/style.css?v=23',
-  './js/app.js?v=23', './js/store.js?v=23', './js/predict.js?v=23', './js/science.js?v=23',
-  './js/stats.js?v=23', './js/util.js?v=23', './js/charts.js?v=23', './js/sheets.js?v=23',
-  './js/sounds.js?v=23', './js/notify.js?v=23', './js/growth.js?v=23', './js/who.js?v=23',
-  './js/vault.js?v=23', './js/cloud.js?v=23', './js/days.js?v=23',
-  './manifest.json?v=23',
+  './css/style.css?v=24',
+  './js/app.js?v=24', './js/store.js?v=24', './js/predict.js?v=24', './js/science.js?v=24',
+  './js/stats.js?v=24', './js/util.js?v=24', './js/charts.js?v=24', './js/sheets.js?v=24',
+  './js/sounds.js?v=24', './js/notify.js?v=24', './js/growth.js?v=24', './js/who.js?v=24',
+  './js/vault.js?v=24', './js/cloud.js?v=24', './js/days.js?v=24',
+  './manifest.json?v=24',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable.png',
 ];
 

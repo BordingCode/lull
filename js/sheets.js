@@ -1,9 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=23';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=23';
-import { esc } from './charts.js?v=23';
-import { isNightSleep } from './predict.js?v=23';
-import { MEASURES } from './growth.js?v=23';
+import * as store from './store.js?v=24';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=24';
+import { esc } from './charts.js?v=24';
+import { isNightSleep } from './predict.js?v=24';
+import { MEASURES } from './growth.js?v=24';
 
 const root = () => document.getElementById('sheet-root');
 
