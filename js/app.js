@@ -1,18 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=25';
-import * as sheets from './sheets.js?v=25';
-import * as sounds from './sounds.js?v=25';
-import * as notify from './notify.js?v=25';
-import * as cloud from './cloud.js?v=25';
-import * as monitor from './monitor.js?v=25';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=25';
-import { band, ageDays, BANDS } from './science.js?v=25';
-import { trend } from './stats.js?v=25';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=25';
-import * as growth from './growth.js?v=25';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=25';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=25';
-import { looksLikeEmail } from './vault.js?v=25';
+import * as store from './store.js?v=26';
+import * as sheets from './sheets.js?v=26';
+import * as sounds from './sounds.js?v=26';
+import * as notify from './notify.js?v=26';
+import * as cloud from './cloud.js?v=26';
+import * as monitor from './monitor.js?v=26';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=26';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=26';
+import { band, ageDays, BANDS } from './science.js?v=26';
+import { trend } from './stats.js?v=26';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=26';
+import * as growth from './growth.js?v=26';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=26';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=26';
+import { looksLikeEmail } from './vault.js?v=26';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -20,6 +21,8 @@ let logDay = null;                       // which baby-day (date key) the Log sh
 let tickTimer = null;
 let trendSpan = 14;                      // Patterns → Over time: 14 / 30 / 90 days or 'all'
 let growthMeasure = 'weight';            // which WHO chart the Growth screen shows
+let guideBand = null;                    // which age the Guide shows; null = the baby's own
+const guideOpen = new Set();             // open Guide topics, so a redraw never folds them shut
 
 /* ---------------- settings helpers ---------------- */
 const S = () => store.settings();
@@ -498,6 +501,57 @@ function growthScreen() {
     mentioning to your health visitor or doctor. Not medical advice.</p>`;
 }
 
+/* ---------------- guide ---------------- */
+const srcLinks = (list) => list.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join(' · ');
+const bullets = (list) => `<ul>${list.map(t => `<li>${t}</li>`).join('')}</ul>`;
+
+function guideScreen() {
+  const own = birthMs() ? BANDS.indexOf(band(birthMs(), Date.now())) : 0;
+  const i = guideBand ?? own;
+  const b = BANDS[i], a = AGES[i];
+  // compact range: "35–60 min" for short windows, "1½–2 h" once they pass 90 min
+  const frac = (m) => { const q = Math.round(m / 15) / 4, w = Math.floor(q); return `${w || ''}${['', '¼', '½', '¾'][(q - w) * 4]}` || '0'; };
+  const span = ([lo, hi]) => hi <= 90 ? `${lo}–${hi} min` : `${frac(lo)}–${frac(hi)} h`;
+  const ageCard = `
+    <h2 class="sec">${i === own && birthMs() ? `${esc(babyName())} now` : 'Sleep by age'}</h2>
+    <div class="chips guide-ages" data-chipgroup="gband">
+      ${BANDS.map((x, k) => `<button type="button" class="chip" data-value="${k}" aria-pressed="${String(k === i)}">${esc(x.label)}${k === own && birthMs() ? ' •' : ''}</button>`).join('')}
+    </div>
+    <div class="card guide-age">
+      <div class="gfacts">
+        <div><b>${a.total}</b><span>sleep per 24 h</span></div>
+        <div><b>${b.naps[0] === b.naps[1] ? b.naps[0] : `${b.naps[0]}–${b.naps[1]}`}</b><span>naps a day</span></div>
+        <div><b>${span(b.ww)}</b><span>awake between sleeps*</span></div>
+      </div>
+      <p>${a.summary}</p>
+      ${bullets(a.points)}
+      <p class="faint">Sleep: the Danish Health Authority's recommendation — plenty of healthy babies sleep more or less. Naps: typical. *Awake times are what sleep practitioners commonly use; there is no official standard. They are the same ranges Lull's next-nap guess starts from.</p>
+    </div>`;
+  const groups = GROUPS.map(g => {
+    const items = TOPICS.filter(t => t.group === g.id);
+    return `<h2 class="sec">${esc(g.title)}</h2>${items.map(t => `
+      <details class="card gtopic" data-topic="${t.id}" ${guideOpen.has(t.id) ? 'open' : ''}>
+        <summary><span class="emoji">${t.icon}</span><b>${esc(t.title)}</b></summary>
+        <div class="gbody">
+          ${t.intro ? `<p>${t.intro}</p>` : ''}
+          ${t.normal ? `<h3>What's normal</h3>${bullets(t.normal)}` : ''}
+          ${t.tryThis ? `<h3>${t.tryTitle || 'Worth trying'}</h3>${bullets(t.tryThis)}` : ''}
+          ${t.avoid ? `<h3>${t.avoidTitle || 'Avoid'}</h3>${bullets(t.avoid)}` : ''}
+          ${t.ask ? `<h3 class="gask">Talk to your health visitor or doctor if</h3>${bullets(t.ask)}` : ''}
+          <p class="faint gsrc">Sources: ${srcLinks(t.sources)}</p>
+        </div>
+      </details>`).join('')}`;
+  }).join('');
+  return ageCard + groups + `
+    <div class="card guide-help">
+      <b>Worried?</b> Your health visitor (sundhedsplejerske) is there for exactly these questions.
+      If your baby seems ill, call your own doctor. Outside opening hours call the out-of-hours
+      service (lægevagten): 1813 in the Capital Region, 1818 in Region Zealand, or your region's
+      lægevagt number (on sundhed.dk) elsewhere. In an emergency, call 112.
+    </div>
+    <p class="faint" style="margin:12px 2px">Written from Danish Health Authority (Sundhedsstyrelsen) advice first, then the AAP, NHS and WHO. Checked ${esc(CHECKED)}. This guide is general information, not medical advice.</p>`;
+}
+
 /* ---------------- night screen: baby monitor + sleep sounds ---------------- */
 function nightScreen() {
   return monitor.cardHtml() + soundsScreen();
@@ -796,7 +850,8 @@ function render() {
     tab === 'home' ? homeScreen() :
     tab === 'log' ? logScreen() :
     tab === 'patterns' ? patternsScreen() :
-    tab === 'growth' ? growthScreen() : nightScreen()}</div>`;
+    tab === 'growth' ? growthScreen() :
+    tab === 'guide' ? guideScreen() : nightScreen()}</div>`;
   screen.scrollTop = keepScroll;
   document.querySelectorAll('#tabs button').forEach(b => {
     if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
@@ -876,6 +931,15 @@ function wireScreen() {
     const bed = new Date(from); bed.setHours(19, 30, 0, 0);
     sheets.sleepSheet({ type: 'sleep', start: Math.max(bed.getTime(), from + 30 * MIN), end: to }, { onDone: render });
   });
+  screen.querySelectorAll('details[data-topic]').forEach(d => d.addEventListener('toggle', () => {
+    if (d.open) guideOpen.add(d.dataset.topic); else guideOpen.delete(d.dataset.topic);
+  }));
+  const gRow = screen.querySelector('.guide-ages'), gOn = gRow?.querySelector('[aria-pressed="true"]');
+  if (gOn) gRow.scrollLeft = gOn.offsetLeft - (gRow.clientWidth - gOn.offsetWidth) / 2;   // sideways only
+  screen.querySelector('[data-chipgroup="gband"]')?.addEventListener('click', (e) => {
+    const c = e.target.closest('.chip'); if (!c) return;
+    guideBand = Number(c.dataset.value); render();
+  });
   screen.querySelectorAll('[data-mon]').forEach(btn => btn.addEventListener('click', () => monitor.action(btn.dataset.mon)));
   screen.querySelectorAll('[data-sound]').forEach(btn => btn.addEventListener('click', () => {
     sounds.play(btn.dataset.sound); render();
@@ -950,6 +1014,7 @@ async function boot() {
   document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => {
     tab = b.dataset.tab;
     if (tab === 'log') logDay = null;
+    if (tab === 'guide') { guideBand = null; $('#screen').scrollTop = 0; }
     render();
   }));
   store.subscribe(() => {});                       // keeps the cache authoritative
@@ -957,6 +1022,11 @@ async function boot() {
   cloud.onStatus(st => { if (st.state === 'ok' && !$('#app').hidden && !document.querySelector('.sheet')) render(); });
   cloud.start();
   sounds.onChange(() => { if (tab === 'night') render(); });
+  // Links from the retired stand-alone apps land here: #guide (Baby Sleep),
+  // #night and #p=<code> (Vuggevagt; the monitor itself reads the code).
+  const hash = location.hash.slice(1);
+  if (hash === 'guide' || hash === 'night' || hash.startsWith('p=')) tab = hash === 'guide' ? 'guide' : 'night';
+  if (hash === 'guide' || hash === 'night') history.replaceState(null, '', location.pathname + location.search);
   // The monitor keeps running whatever tab is showing; it only asks for the
   // Night card and the top-bar chip to be brought up to date.
   monitor.init({ onChange: () => {
@@ -967,7 +1037,7 @@ async function boot() {
 
   render();
   // Live countdowns: cheap re-render every 15 s, and immediately on return.
-  tickTimer = setInterval(() => { if (!document.querySelector('.sheet')) render(); }, 15000);
+  tickTimer = setInterval(() => { if (!document.querySelector('.sheet') && tab !== 'guide') render(); }, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
 
   if ('serviceWorker' in navigator) {

@@ -42,9 +42,23 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
 - **Growth** — weight, length and head circumference in kg/cm, plotted on the
   WHO Child Growth Standards (0–2 years, girls/boys) with the percentile in
   plain words.
-- **Sounds** — white noise, brown noise, rain, heartbeat and a lullaby, all
+- **Night** — the **baby monitor** and the sleep sounds. The monitor turns two
+  phones into a baby monitor: one stays by the cot, one stays with you. Audio
+  goes straight between the phones (WebRTC, encrypted end to end); a small
+  Cloudflare Worker only introduces them (`vuggevagt-signal`, code in the old
+  BordingCode/vuggevagt repo). It warns about a low battery on the baby phone,
+  and wails if the connection is lost. The baby phone must keep its screen on
+  (Android takes the microphone away from a browser in the background) — see
+  `CLAUDE.md`. Formerly the stand-alone app Vuggevagt.
+  **Sleep sounds** — white noise, brown noise, rain, heartbeat and a lullaby, all
   synthesised in the browser (no downloads, no loop seam), with volume and a
   fade-out sleep timer.
+- **Guide** — sleep by age for your baby (Danish recommended sleep, naps and
+  awake windows), and short, sourced topics: safe sleep, outdoor pram naps,
+  room temperature, routines and settling, night feeds, common worries
+  ("regressions", short naps, early waking, dropping a nap) and when to get
+  help. Danish Health Authority advice first; sources in `docs/SOURCES.md`.
+  Formerly the stand-alone app Baby Sleep, rewritten.
 - **Settings** — name, birth date, girl/boy (for the growth curves), ml/oz, three colour schemes (dark, light and
   a dim warm **night mode** for 3am), reminders, cloud backup, and backup/restore to a file.
 

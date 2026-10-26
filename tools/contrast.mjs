@@ -62,6 +62,8 @@ const PAIRS = [
   ['nap', 'bg-3', 3.0, 'nap block on a sleep bar (graphic)'],
   ['accent', 'bg-3', 3.0, 'night block on a sleep bar (graphic)'],
   ['line', 'bg', 1.2, 'hairline border (graphic)'],
+  ['accent', 'bg-3', 4.5, 'guide fact numbers'],
+  ['warn', 'bg-2', 4.5, 'guide "talk to" heading'],
   // baby monitor
   ['bg', 'danger', 4.5, 'monitor "cut off" chip/pill'],
   ['warn', 'bg', 4.5, 'monitor warning on the monitor screen'],

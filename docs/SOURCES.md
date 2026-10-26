@@ -33,12 +33,30 @@ Nap-length fallbacks per age band are from the same sources. For charts, "night"
 is defined as 19:00–07:00 and a sleep that crosses that line is **split**
 proportionally rather than being guessed into one bucket (see `js/stats.js`).
 
+## The Guide tab (added 2026-10-26)
+The Guide replaces the stand-alone Baby Sleep app. It follows the Danish Health
+Authority (Sundhedsstyrelsen) first — the 2023 cot-death leaflets, the parent
+handbook *Sunde børn* and the 2024 sleep-length recommendations — then the AAP,
+NHS and WHO, then research. Every topic in `js/guide.js` lists its sources; the
+full notes with page numbers, and every place where Danish advice differs from
+US/UK advice, are in `docs/guide-research.md`.
+
+- "Sleep per 24 h" — on the Guide and in Patterns alike — is Sundhedsstyrelsen's
+  2024 recommendation (0–3 months 14–17 h, 4–11 months 12–15 h, 1–2 years
+  11–14 h), set in `js/science.js`. Until 2026-10-26 Patterns used the slightly
+  wider AASM/NSF ranges listed above.
+- Naps and awake windows on the Guide come straight from `js/science.js`, so the
+  Guide and the next-nap prediction can never disagree.
+
 ## Deliberately not in the app
-- No sleep-training programme, schedule to follow, or "your baby should…" advice.
+- No sleep-training programme or schedule to follow. The Guide describes the
+  gentle, stay-in-the-room approach Sundhedsstyrelsen gives, and mentions timed
+  check-ins only as a researched option from 6 months that is not part of
+  Danish advice.
+- No fixed-age "sleep regressions", no cortisol claims, no exact sleep-cycle
+  minutes: the research doesn't support them (see guide-research.md, section 7).
 - No developmental scoring. The only percentiles are growth (weight, length,
   head) against the WHO tables below.
-- No claims about safe sleep practice; that belongs with a health visitor,
-  midwife or doctor.
 
 ## Growth curves
 WHO Child Growth Standards (2006), birth to 24 months: weight-for-age,
