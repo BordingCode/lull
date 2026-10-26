@@ -1,17 +1,18 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=24';
-import * as sheets from './sheets.js?v=24';
-import * as sounds from './sounds.js?v=24';
-import * as notify from './notify.js?v=24';
-import * as cloud from './cloud.js?v=24';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=24';
-import { band, ageDays, BANDS } from './science.js?v=24';
-import { trend } from './stats.js?v=24';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=24';
-import * as growth from './growth.js?v=24';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=24';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=24';
-import { looksLikeEmail } from './vault.js?v=24';
+import * as store from './store.js?v=25';
+import * as sheets from './sheets.js?v=25';
+import * as sounds from './sounds.js?v=25';
+import * as notify from './notify.js?v=25';
+import * as cloud from './cloud.js?v=25';
+import * as monitor from './monitor.js?v=25';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=25';
+import { band, ageDays, BANDS } from './science.js?v=25';
+import { trend } from './stats.js?v=25';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=25';
+import * as growth from './growth.js?v=25';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=25';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=25';
+import { looksLikeEmail } from './vault.js?v=25';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -497,7 +498,11 @@ function growthScreen() {
     mentioning to your health visitor or doctor. Not medical advice.</p>`;
 }
 
-/* ---------------- sounds screen ---------------- */
+/* ---------------- night screen: baby monitor + sleep sounds ---------------- */
+function nightScreen() {
+  return monitor.cardHtml() + soundsScreen();
+}
+
 function soundsScreen() {
   const cur = sounds.playing();
   const left = sounds.timerLeftMs();
@@ -791,7 +796,7 @@ function render() {
     tab === 'home' ? homeScreen() :
     tab === 'log' ? logScreen() :
     tab === 'patterns' ? patternsScreen() :
-    tab === 'growth' ? growthScreen() : soundsScreen()}</div>`;
+    tab === 'growth' ? growthScreen() : nightScreen()}</div>`;
   screen.scrollTop = keepScroll;
   document.querySelectorAll('#tabs button').forEach(b => {
     if (b.dataset.tab === tab) b.setAttribute('aria-current', 'page');
@@ -871,6 +876,7 @@ function wireScreen() {
     const bed = new Date(from); bed.setHours(19, 30, 0, 0);
     sheets.sleepSheet({ type: 'sleep', start: Math.max(bed.getTime(), from + 30 * MIN), end: to }, { onDone: render });
   });
+  screen.querySelectorAll('[data-mon]').forEach(btn => btn.addEventListener('click', () => monitor.action(btn.dataset.mon)));
   screen.querySelectorAll('[data-sound]').forEach(btn => btn.addEventListener('click', () => {
     sounds.play(btn.dataset.sound); render();
   }));
@@ -895,6 +901,18 @@ function wireScreen() {
       sheets.toast(Number(e.detail) ? `Fading out in ${e.detail} min` : 'Timer off');
     });
   }
+}
+
+/* ---------------- monitor chip in the top bar ---------------- */
+// While the monitor runs you can use the rest of Lull, so the top bar always
+// says it is on (or that something is wrong) and opens it with one tap.
+function paintMonChip() {
+  const st = monitor.status();
+  const chip = $('#mon-chip');
+  chip.hidden = !st.started || st.open;
+  if (chip.hidden) return;
+  chip.textContent = st.dead ? '⚠️ Monitor' : st.role === 'baby' ? '👶 On' : '🎧 ' + (st.kind === 'ok' ? 'Listening' : 'Monitor');
+  chip.className = 'monchip ' + (st.dead || st.kind === 'bad' ? 'bad' : st.kind === 'ok' ? 'ok' : 'warn');
 }
 
 /* ---------------- boot ---------------- */
@@ -938,7 +956,14 @@ async function boot() {
   // a merge from another phone should show up on screen straight away
   cloud.onStatus(st => { if (st.state === 'ok' && !$('#app').hidden && !document.querySelector('.sheet')) render(); });
   cloud.start();
-  sounds.onChange(() => { if (tab === 'sounds') render(); });
+  sounds.onChange(() => { if (tab === 'night') render(); });
+  // The monitor keeps running whatever tab is showing; it only asks for the
+  // Night card and the top-bar chip to be brought up to date.
+  monitor.init({ onChange: () => {
+    paintMonChip();
+    if (tab === 'night' && !$('#app').hidden && !document.querySelector('.sheet')) render();
+  } });
+  $('#mon-chip').addEventListener('click', () => monitor.action('open'));
 
   render();
   // Live countdowns: cheap re-render every 15 s, and immediately on return.

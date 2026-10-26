@@ -62,6 +62,14 @@ const PAIRS = [
   ['nap', 'bg-3', 3.0, 'nap block on a sleep bar (graphic)'],
   ['accent', 'bg-3', 3.0, 'night block on a sleep bar (graphic)'],
   ['line', 'bg', 1.2, 'hairline border (graphic)'],
+  // baby monitor
+  ['bg', 'danger', 4.5, 'monitor "cut off" chip/pill'],
+  ['warn', 'bg', 4.5, 'monitor warning on the monitor screen'],
+  ['warn', 'bg-sheet', 4.5, 'monitor warning on the baby phone panel'],
+  ['fg-dim', 'bg-sheet', 4.5, 'baby phone panel note'],
+  ['fg-dim', 'feed-soft', 4.5, 'alert banner time'],
+  ['fg', 'bg-3', 4.5, 'monitor choice card'],
+  ['fg-dim', 'bg-3', 4.5, 'monitor choice card text'],
 ];
 
 let fails = 0, warns = 0;

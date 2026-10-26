@@ -1,5 +1,5 @@
 // ===== Lull — tiny inline-SVG charts (no libraries) =====
-import { DAY, HOUR, MIN, dur, clock } from './util.js?v=24';
+import { DAY, HOUR, MIN, dur, clock } from './util.js?v=25';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 

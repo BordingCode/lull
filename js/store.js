@@ -7,7 +7,7 @@
 // Every record carries `id` + `updatedAt` + a `deleted` tombstone, so a cloud
 // backup and two phones on one account can merge without losing anything.
 
-import { uid } from './util.js?v=24';
+import { uid } from './util.js?v=25';
 
 const DB_NAME = 'lull', DB_VERSION = 1, LS_KEY = 'lull.fallback.v1';
 const EVENTS = 'events', SETTINGS = 'settings';

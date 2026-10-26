@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#0d1017" />
   <title>Lull — baby sleep &amp; feeding tracker</title>
   <meta name="description" content="One-tap baby sleep, feeding and diaper tracking with next-nap predictions. Works offline, data stays on your phone." />
-  <link rel="manifest" href="manifest.json?v=24" />
+  <link rel="manifest" href="manifest.json?v=25" />
   <link rel="icon" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Lull" />
-  <link rel="stylesheet" href="css/style.css?v=24" />
+  <link rel="stylesheet" href="css/style.css?v=25" />
 </head>
 <body>
   <div id="app" hidden>
@@ -22,6 +22,7 @@
         <b id="baby-name">Baby</b>
         <span id="baby-age"></span>
       </div>
+      <button class="monchip" id="mon-chip" hidden></button>
       <button class="iconbtn" id="btn-theme" title="Switch colours" aria-label="Switch colours">🌙</button>
       <button class="iconbtn" id="btn-settings" title="Settings" aria-label="Settings">⚙️</button>
     </header>
@@ -33,7 +34,7 @@
       <button data-tab="log"><span class="emoji">📋</span>Log</button>
       <button data-tab="patterns"><span class="emoji">📊</span>Patterns</button>
       <button data-tab="growth"><span class="emoji">📏</span>Growth</button>
-      <button data-tab="sounds"><span class="emoji">🎵</span>Sounds</button>
+      <button data-tab="night"><span class="emoji">🌙</span>Night</button>
     </nav>
   </div>
 
@@ -60,7 +61,7 @@
     </div>
   </section>
 
-  <script type="module" src="js/app.js?v=24"></script>
+  <script type="module" src="js/app.js?v=25"></script>
   <!-- hub-stats visit counter -->
   <script>(function(){try{var A="lull",K="hubdev",d=localStorage.getItem(K);if(!d){d=(self.crypto&&crypto.randomUUID?crypto.randomUUID():Date.now()+"."+Math.random().toString(36).slice(2));localStorage.setItem(K,d);}var u="https://hub-stats.mathiasjob.workers.dev/hit",b=JSON.stringify({app:A,d:d});if(navigator.sendBeacon){navigator.sendBeacon(u,b);}else{fetch(u,{method:"POST",body:b,keepalive:true,mode:"no-cors"});}}catch(e){}})();</script>
 </body>

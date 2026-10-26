@@ -9,7 +9,7 @@
 //   2. 'sleep'  – the end of the night's sleep, if it ended between 04:00 and 11:00
 //   3. 'guess'  – 06:00, clearly marked as a guess in the UI
 
-import { MIN, HOUR, DAY, startOfDay } from './util.js?v=24';
+import { MIN, HOUR, DAY, startOfDay } from './util.js?v=25';
 
 const MORNING_FROM = 4, MORNING_TO = 11;   // a night ending in this window = up for the day
 const GUESS_HOUR = 6;
