@@ -19,7 +19,8 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
 ## Screens
 - **Home** — giant sleep button (tap asleep / tap awake) with a progress ring,
   a live "awake for 1h 12m" counter, quick-log buttons for breast, bottle,
-  solids and diaper, the next-nap prediction with a countdown, and today's
+  pump, solids and diaper (pumping is its own entry type `pump` with side,
+  minutes and ml, and never counts as a feed), the next-nap prediction with a countdown, and today's
   24-hour bar.
 - **Log** — one *day* at a time, the way parents live it: from the morning
   wake-up, through the day and the night after it, to the next morning. The day

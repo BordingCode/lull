@@ -9,7 +9,7 @@
 //   2. 'sleep'  – the end of the night's sleep, if it ended between 04:00 and 11:00
 //   3. 'guess'  – 06:00, clearly marked as a guess in the UI
 
-import { MIN, HOUR, DAY, startOfDay } from './util.js?v=26';
+import { MIN, HOUR, DAY, startOfDay } from './util.js?v=27';
 
 const MORNING_FROM = 4, MORNING_TO = 11;   // a night ending in this window = up for the day
 const GUESS_HOUR = 6;
@@ -93,6 +93,7 @@ function tally(events, from, to) {
   const inside = (e) => e.start >= from && e.start < to;
   const feedEvents = events.filter(e => e.type === 'feed' && inside(e));
   const diaperEvents = events.filter(e => e.type === 'diaper' && inside(e));
+  const pumpEvents = events.filter(e => e.type === 'pump' && inside(e));
   return {
     feeds: {
       count: feedEvents.length,
@@ -102,6 +103,11 @@ function tally(events, from, to) {
       bottle: feedEvents.filter(f => f.kind === 'bottle').length,
       bottleMl: feedEvents.reduce((a, f) => a + (Number(f.amountMl) || 0), 0),
       solids: feedEvents.filter(f => f.kind === 'solids').length,
+    },
+    // pumping is milk for later, not a feed: it never counts toward `feeds`
+    pumps: {
+      count: pumpEvents.length,
+      ml: pumpEvents.reduce((a, p) => a + (Number(p.amountMl) || 0), 0),
     },
     diapers: {
       total: diaperEvents.length,

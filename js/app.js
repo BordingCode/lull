@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=26';
-import * as sheets from './sheets.js?v=26';
-import * as sounds from './sounds.js?v=26';
-import * as notify from './notify.js?v=26';
-import * as cloud from './cloud.js?v=26';
-import * as monitor from './monitor.js?v=26';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=26';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=26';
-import { band, ageDays, BANDS } from './science.js?v=26';
-import { trend } from './stats.js?v=26';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=26';
-import * as growth from './growth.js?v=26';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=26';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=26';
-import { looksLikeEmail } from './vault.js?v=26';
+import * as store from './store.js?v=27';
+import * as sheets from './sheets.js?v=27';
+import * as sounds from './sounds.js?v=27';
+import * as notify from './notify.js?v=27';
+import * as cloud from './cloud.js?v=27';
+import * as monitor from './monitor.js?v=27';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=27';
+import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=27';
+import { band, ageDays, BANDS } from './science.js?v=27';
+import { trend } from './stats.js?v=27';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=27';
+import * as growth from './growth.js?v=27';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=27';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=27';
+import { looksLikeEmail } from './vault.js?v=27';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -136,6 +136,7 @@ function homeScreen() {
   const quick = `<div class="quick">
       <button data-log="breast"><span class="emoji">🤱</span>Breast</button>
       <button data-log="bottle"><span class="emoji">🍼</span>Bottle</button>
+      <button data-log="pump"><span class="emoji">🥛</span>Pump</button>
       <button data-log="solids"><span class="emoji">🥣</span>Solids</button>
       <button data-log="diaper"><span class="emoji">🧷</span>Diaper</button>
     </div>`;
@@ -188,6 +189,10 @@ function entryRow(e) {
     if (e.kind === 'breast') { ic = '🤱'; title = 'Breastfeed'; sub = [e.side && `${e.side} side`, e.minutes && dur(e.minutes)].filter(Boolean).join(' · '); }
     else if (e.kind === 'bottle') { ic = '🍼'; title = 'Bottle'; sub = e.amountMl ? amount(e.amountMl) : ''; }
     else { ic = '🥣'; title = 'Solids'; sub = e.food || ''; }
+  } else if (e.type === 'pump') {
+    cls = 'feed'; ic = '🥛'; title = 'Pumping';
+    sub = [e.side && (e.side === 'both' ? 'Both sides' : `${e.side} side`), e.minutes && dur(e.minutes), e.amountMl && amount(e.amountMl)]
+      .filter(Boolean).join(' · ');
   } else if (e.type === 'diaper') {
     cls = 'diaper';
     ic = e.kind === 'dirty' ? '💩' : e.kind === 'both' ? '💩' : e.kind === 'dry' ? '🧷' : '💧';
@@ -276,14 +281,19 @@ function logScreen() {
       <div class="stat feed"><b>${d.feeds.bottleMl ? amount(d.feeds.bottleMl) : '—'}</b><span>bottle</span>${d.feeds.bottleMl || prev?.feeds.bottleMl ? delta(d.feeds.bottleMl, prev?.feeds.bottleMl, false).replace(/(\d+)<\/small>/, (m, n) => `${amount(Number(n))}</small>`) : ''}</div>
       <div class="stat diaper"><b>${d.diapers.total}</b><span>diapers</span>${delta(d.diapers.total, prev?.diapers.total, false)}</div>
     </div>
+    ${d.pumps.count ? `<div class="stats two" style="margin-top:8px">
+      <div class="stat feed"><b>${d.pumps.count}</b><span>pumping session${d.pumps.count === 1 ? '' : 's'}</span></div>
+      <div class="stat feed"><b>${d.pumps.ml ? amount(d.pumps.ml) : '—'}</b><span>pumped</span></div>
+    </div>` : ''}
     ${hasPrev ? `<p class="faint" style="margin:8px 2px 0">▲▼ compared with ${isCur ? 'yesterday at this point in the day' : 'the day before'}${
       nightGap ? `. Night and awake hours aren't compared: ${d.nightMissing ? "this day's" : "the day before's"} night wasn't logged` : ''}.</p>` : ''}
     <h2 class="sec">Entries</h2>
     <div class="card">${items.length ? items.map(entryRow).join('')
       : '<div class="faint" style="padding:6px 2px">Nothing logged this day.</div>'}</div>
-    <div class="row" style="margin-top:4px">
+    <div class="row addrow" style="margin-top:4px">
       <button class="btn ghost" data-add="sleep">+ Sleep</button>
       <button class="btn ghost" data-add="feed">+ Feed</button>
+      <button class="btn ghost" data-add="pump">+ Pump</button>
       <button class="btn ghost" data-add="diaper">+ Diaper</button>
     </div>
     <button class="btn ghost" data-add="daystart" style="margin-top:8px">☀️ Day started at…</button>`;
@@ -895,6 +905,7 @@ function wireScreen() {
   screen.querySelectorAll('[data-log]').forEach(btn => btn.addEventListener('click', () => {
     const k = btn.dataset.log;
     if (k === 'diaper') sheets.diaperSheet(null, { onDone: render });
+    else if (k === 'pump') sheets.pumpSheet(null, { unit: unit(), onDone: render });
     else sheets.feedSheet(null, { kind: k, unit: unit(), onDone: render });
   }));
   screen.querySelectorAll('[data-edit]').forEach(row => row.addEventListener('click', () => {
@@ -907,6 +918,7 @@ function wireScreen() {
     const stub = { start: base };
     if (btn.dataset.add === 'daystart') openDayStart();
     else if (btn.dataset.add === 'sleep') sheets.sleepSheet({ ...stub, type: 'sleep', id: undefined, end: base + 3600000 }, { onDone: render });
+    else if (btn.dataset.add === 'pump') sheets.pumpSheet({ ...stub, type: 'pump', id: undefined }, { unit: unit(), onDone: render });
     else if (btn.dataset.add === 'feed') sheets.feedSheet({ ...stub, type: 'feed', kind: 'breast', id: undefined }, { unit: unit(), onDone: render });
     else sheets.diaperSheet({ ...stub, type: 'diaper', kind: 'wet', id: undefined }, { onDone: render });
   }));

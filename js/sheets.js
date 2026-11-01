@@ -1,9 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=26';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=26';
-import { esc } from './charts.js?v=26';
-import { isNightSleep } from './predict.js?v=26';
-import { MEASURES } from './growth.js?v=26';
+import * as store from './store.js?v=27';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=27';
+import { esc } from './charts.js?v=27';
+import { isNightSleep } from './predict.js?v=27';
+import { MEASURES } from './growth.js?v=27';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -348,10 +348,59 @@ export function growthSheet(ev, { onDone } = {}) {
   });
 }
 
+/* ---------- pump ---------- */
+export function pumpSheet(ev, { unit = 'ml', onDone } = {}) {
+  const isNew = !ev?.id;
+  const start = ev?.start ?? Date.now();
+  const toUnit = (ml) => ml ? (unit === 'oz' ? (ml / 29.5735).toFixed(1) : ml) : '';
+  const html = `
+    <h3>${isNew ? 'Add pumping' : 'Edit pumping'}</h3>
+    ${timeField('p-start', 'Time', start)}
+    <div class="field">
+      <label>Side</label>
+      ${chipRow('pside', [{ v: 'left', t: 'Left' }, { v: 'right', t: 'Right' }, { v: 'both', t: 'Both' }], ev?.side || 'both')}
+    </div>
+    <div class="field">
+      <label for="p-min">Minutes pumping</label>
+      <input id="p-min" type="number" inputmode="numeric" min="0" max="120" value="${ev?.minutes ?? ''}" placeholder="e.g. 15" />
+    </div>
+    <div class="field">
+      <label for="p-amt">Amount pumped (${esc(unit)})</label>
+      <input id="p-amt" type="number" inputmode="decimal" min="0" max="1000" step="${unit === 'oz' ? '0.5' : '5'}"
+             value="${toUnit(ev?.amountMl)}" placeholder="${unit === 'oz' ? 'e.g. 4' : 'e.g. 120'}" />
+    </div>
+    <div class="field">
+      <label for="p-note">Note (optional)</label>
+      <input id="p-note" type="text" value="${esc(ev?.note || '')}" placeholder="e.g. froze it" />
+    </div>
+    <button class="btn" id="p-save">${isNew ? 'Save pumping' : 'Save changes'}</button>
+    ${isNew ? '' : '<button class="btn danger" id="p-del" style="margin-top:8px">Delete this pumping</button>'}`;
+
+  openSheet(html, (sheet, closeIt) => {
+    wireNudges(sheet); wireChips(sheet);
+    sheet.querySelector('#p-save').addEventListener('click', async () => {
+      const rec = { ...(ev || {}), type: 'pump', side: picked(sheet, 'pside'),
+                    start: msFromTime(start, sheet.querySelector('#p-start').value),
+                    note: sheet.querySelector('#p-note').value.trim() || undefined };
+      const m = Number(sheet.querySelector('#p-min').value);
+      rec.minutes = m > 0 ? m : undefined;
+      rec.end = rec.minutes ? rec.start + rec.minutes * MIN : undefined;
+      const v = Number(sheet.querySelector('#p-amt').value);
+      rec.amountMl = v > 0 ? Math.round(unit === 'oz' ? v * 29.5735 : v) : undefined;
+      await store.saveEvent(rec);
+      closeIt(); toast(isNew ? 'Pumping saved' : 'Pumping updated'); onDone?.();
+    });
+    sheet.querySelector('#p-del')?.addEventListener('click', async () => {
+      await store.deleteEvent(ev.id); closeIt(); toast('Deleted'); onDone?.();
+    });
+  });
+}
+
 /** Route an entry to the right editor. */
 export function editEvent(ev, opts = {}) {
   if (ev.type === 'sleep') return sleepSheet(ev, opts);
   if (ev.type === 'feed') return feedSheet(ev, opts);
+  if (ev.type === 'pump') return pumpSheet(ev, opts);
   if (ev.type === 'diaper') return diaperSheet(ev, opts);
   if (ev.type === 'growth') return growthSheet(ev, opts);
   if (ev.type === 'daystart') return dayStartSheet(ev, opts);

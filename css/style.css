@@ -175,7 +175,7 @@ h2.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .09em;
 .pill.accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 
 /* ---------- quick log ---------- */
-.quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 14px 0 2px; }
+.quick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin: 14px 0 2px; }
 .quick button {
   display: grid; place-items: center; gap: 5px; padding: 12px 4px 10px;
   background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px;
@@ -562,3 +562,4 @@ body.mon-saver .dot { animation: none; opacity: .5; }
 .gsrc a, .guide-help a { color: var(--accent); }
 .guide-help { font-size: 14px; line-height: 1.5; color: var(--fg-dim); }
 .guide-help b { color: var(--fg); }
+.addrow .btn { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 15px; }

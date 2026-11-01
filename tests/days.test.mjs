@@ -112,3 +112,18 @@ test('a day whose night was never logged is flagged, and left out of the average
   // cut short for a comparison, it is still known that the night is missing
   assert.equal(babyDay(evs, D(14), now, { upTo: at(14, 12) }).nightMissing, true);
 });
+
+test('pumping is tallied on its own and never counts as a feed', () => {
+  const t0 = new Date(2026, 9, 5, 7, 0).getTime();
+  const evs = [
+    { id: 'd', type: 'daystart', start: t0 },
+    { id: 'f', type: 'feed', kind: 'bottle', start: t0 + 3600000, amountMl: 100 },
+    { id: 'p1', type: 'pump', side: 'both', start: t0 + 2 * 3600000, minutes: 15, amountMl: 120 },
+    { id: 'p2', type: 'pump', side: 'left', start: t0 + 5 * 3600000, amountMl: 60 },
+  ];
+  const day = babyDay(evs, startOfDay(t0), t0 + 10 * 3600000);
+  assert.equal(day.feeds.count, 1);
+  assert.equal(day.feeds.bottleMl, 100, 'pumped milk is not bottle milk drunk');
+  assert.equal(day.pumps.count, 2);
+  assert.equal(day.pumps.ml, 180);
+});
