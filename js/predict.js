@@ -9,14 +9,16 @@
 // Nothing here pretends to be more precise than it is: everything comes out as
 // a range plus a confidence level.
 
-import { band, BEDTIME_STRETCH } from './science.js?v=27';
-import { MIN, median, clamp } from './util.js?v=27';
+import { band, BEDTIME_STRETCH } from './science.js?v=28';
+import { MIN, median, clamp } from './util.js?v=28';
 
 const MAX_SANE_WINDOW = 8 * 60;   // minutes; longer gaps = untracked time, not a real wake window
 const MIN_SANE_WINDOW = 10;       // minutes; shorter = a logging correction
 const BEDTIME_HOUR    = 17.5;     // predicted sleep later than this is treated as bedtime
 const NIGHT_FROM = 19, NIGHT_TO = 5;          // the hours we treat as "the night"
 const NIGHT_FALLBACK = [20, 60];              // typical awake stretch at a night waking
+const GAP_IN_LOG = 7 * 60;                    // minutes; past this Home says the log has a gap
+const MAX_ASK_AFTER = 24 * 60;                // minutes; older than this, don't ask about a missed sleep
 
 export const isNightHour = (ms) => {
   const h = new Date(ms).getHours();
@@ -123,6 +125,38 @@ export function blendWindow(typical, observed) {
 
 export function confidenceOf(n) {
   return n >= 10 ? 'high' : n >= 3 ? 'medium' : 'low';
+}
+
+/**
+ * Has the log probably missed a sleep? True when the baby has, on paper, been
+ * awake way past their usual window. Uses daytime windows even at night, so an
+ * ordinary long evening stretch isn't mistaken for a forgotten sleep.
+ * Returns null when there's nothing to ask, otherwise the numbers for the
+ * question plus suggested times to pre-fill (rounded: they are only a guess).
+ */
+export function missedSleep({ events, birthMs, nowMs }) {
+  if (!birthMs || ongoingSleep(events)) return null;
+  const woke = lastWakeAt(events, nowMs);
+  if (woke == null) return null;
+
+  const awakeMin = (nowMs - woke) / MIN;
+  const b = band(birthMs, nowMs);
+  const { minutes, range } = blendWindow(b.ww, observedWindows(events, nowMs, 7, 'day'));
+  // "Way past": a clear margin beyond the top of the window, and never later
+  // than the point where Home already says there's a gap in the log.
+  const limit = Math.min(range[1] + Math.max(60, minutes * 0.5), GAP_IN_LOG);
+  if (awakeMin < limit || awakeMin > MAX_ASK_AFTER) return null;   // too long ago = logging has lapsed
+
+  const round5 = (ms) => Math.round(ms / (5 * MIN)) * 5 * MIN;
+  const start = Math.min(round5(woke + minutes * MIN), nowMs);
+  const naps = observedNaps(events, nowMs);
+  const napMid = naps.length >= 3 ? median(naps.slice(0, 8)) : (b.napLen[0] + b.napLen[1]) / 2;
+  const napEnd = round5(start + napMid * MIN);
+  // Blank end = "Still asleep". A night sleep that began while it's still night
+  // is probably still going; one from last night has ended by now.
+  const end = isNightHour(start) ? (isNightHour(nowMs) ? null : nowMs)
+                                 : (napEnd >= nowMs ? null : napEnd);
+  return { awakeSince: woke, awakeMin, usual: range, suggestStart: start, suggestEnd: end };
 }
 
 /**

@@ -1,7 +1,7 @@
 // Unit tests for Lull's prediction + stats maths.  Run: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { predict, observedWindows, blendWindow, isNightSleep, napsToday, ongoingSleep, lastWakeAt } from '../js/predict.js';
+import { predict, observedWindows, blendWindow, isNightSleep, napsToday, ongoingSleep, lastWakeAt, missedSleep } from '../js/predict.js';
 import { band, ageDays } from '../js/science.js';
 import { dur, relative, overlapMin, median, startOfDay } from '../js/util.js';
 
@@ -161,3 +161,38 @@ test('night sleep detection and nap counting', () => {
   assert.equal(napsToday(evs, T), 2);
 });
 
+
+/* ---------------- "did you forget a sleep?" ---------------- */
+const fiveMonths = T - 150 * DAY;   // awake window 2h–2h30 by age, no measured data below
+
+test('missedSleep stays quiet within a normal awake stretch and asks when way past it', () => {
+  const evs = [sleep(9, 0, 10, 0)];
+  assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(12, 30) }), null, 'in the window');
+  assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(13, 0) }), null, 'a bit late is not way past');
+  const m = missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(14, 0) });
+  assert.ok(m, '4h awake at 5 months');
+  assert.equal(m.awakeSince, at(10, 0));
+  assert.ok(m.suggestStart > at(10, 0) && m.suggestStart < at(14, 0));
+});
+
+test('missedSleep never asks while a sleep is running, or with nothing to go on', () => {
+  assert.equal(missedSleep({ events: [sleep(9, 0, null)], birthMs: fiveMonths, nowMs: at(14, 0) }), null);
+  assert.equal(missedSleep({ events: [], birthMs: fiveMonths, nowMs: at(14, 0) }), null);
+  assert.equal(missedSleep({ events: [sleep(9, 0, 10, 0)], birthMs: null, nowMs: at(14, 0) }), null);
+});
+
+test('missedSleep gives up when logging has simply lapsed', () => {
+  assert.equal(missedSleep({ events: [sleep(9, 0, 10, 0, -2)], birthMs: fiveMonths, nowMs: at(14, 0) }), null);
+});
+
+test('missedSleep does not treat the evening run-up to bedtime as a forgotten sleep', () => {
+  // last nap ended 16:30; at 19:15 it is "night", but this is an ordinary stretch
+  assert.equal(missedSleep({ events: [sleep(15, 30, 16, 30)], birthMs: fiveMonths, nowMs: at(19, 15) }), null);
+});
+
+test('missedSleep suggests a finished nap by day, and a finished night the next morning', () => {
+  const day = missedSleep({ events: [sleep(9, 0, 10, 0)], birthMs: fiveMonths, nowMs: at(16, 0) });
+  assert.ok(day.suggestEnd > day.suggestStart && day.suggestEnd < at(16, 0));
+  const morning = missedSleep({ events: [sleep(16, 0, 18, 0, -1)], birthMs: fiveMonths, nowMs: at(8, 0) });
+  assert.equal(morning.suggestEnd, at(8, 0));
+});

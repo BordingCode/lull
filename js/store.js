@@ -7,14 +7,14 @@
 // Every record carries `id` + `updatedAt` + a `deleted` tombstone, so a cloud
 // backup and two phones on one account can merge without losing anything.
 
-import { uid } from './util.js?v=27';
+import { uid } from './util.js?v=28';
 
 const DB_NAME = 'lull', DB_VERSION = 1, LS_KEY = 'lull.fallback.v1';
 const EVENTS = 'events', SETTINGS = 'settings';
 
 // Settings that belong to this phone only: never sent to the cloud. `cloud` (the
 // account keys) is also kept out of backup files.
-const LOCAL_ONLY = new Set(['cloud', 'reminders', 'theme']);
+const LOCAL_ONLY = new Set(['cloud', 'reminders', 'theme', 'missedAsked']);
 
 let db = null, useFallback = false;
 // tombs = deleted records, kept so a deletion can reach the cloud backup and other phones.

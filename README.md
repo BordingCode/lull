@@ -18,6 +18,9 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
 
 ## Screens
 - **Home** — giant sleep button (tap asleep / tap awake) with a progress ring,
+  a slim one-tap breastfeeding timer under it (tap Left or Right to start,
+  Switch, Done), a "forgot to log a sleep?" question when you open the app and
+  the log has the baby awake way past the usual window (asked once per stretch),
   a live "awake for 1h 12m" counter, quick-log buttons for breast, bottle,
   pump, solids and diaper (pumping is its own entry type `pump` with side,
   minutes and ml, and never counts as a feed), the next-nap prediction with a countdown, and today's

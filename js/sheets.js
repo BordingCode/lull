@@ -1,9 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=27';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=27';
-import { esc } from './charts.js?v=27';
-import { isNightSleep } from './predict.js?v=27';
-import { MEASURES } from './growth.js?v=27';
+import * as store from './store.js?v=28';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=28';
+import { esc } from './charts.js?v=28';
+import { isNightSleep } from './predict.js?v=28';
+import { MEASURES } from './growth.js?v=28';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -161,6 +161,24 @@ export function sleepInfo(ev, { onDone } = {}) {
   });
 }
 
+/* ---------- "did you forget a sleep?" ---------- */
+export function missedSleepSheet(m, { name, onDone } = {}) {
+  const since = startOfDay(m.awakeSince) === startOfDay(Date.now()) ? clock(m.awakeSince) : `yesterday ${clock(m.awakeSince)}`;
+  const html = `
+    <h3>🌙 Forgot to log a sleep?</h3>
+    <p class="muted" style="margin:0 0 16px">The log has ${esc(name)} awake since ${since}, which is ${dur(m.awakeMin)}.
+    That's well past the usual ${dur(m.usual[0])}–${dur(m.usual[1])}.</p>
+    <div class="row">
+      <button class="btn ghost" id="ms-no">No, still awake</button>
+      <button class="btn" id="ms-yes">Yes, add sleep</button>
+    </div>`;
+  openSheet(html, (sheet, closeIt) => {
+    sheet.querySelector('#ms-no').addEventListener('click', closeIt);
+    sheet.querySelector('#ms-yes').addEventListener('click', () =>
+      sleepSheet({ type: 'sleep', start: m.suggestStart, end: m.suggestEnd }, { onDone }));
+  });
+}
+
 /* ---------- day started ---------- */
 // The morning wake-up. Starts a new day in the Log without needing last night's
 // bedtime. If a sleep is still running from the night, it ends at this time.
@@ -253,6 +271,7 @@ export function feedSheet(ev, { kind = 'breast', unit = 'ml', onDone } = {}) {
         rec.food = sheet.querySelector('#f-food').value.trim() || undefined;
         rec.side = undefined; rec.minutes = undefined; rec.amountMl = undefined; rec.end = undefined;
       }
+      if (rec.end || kindNow !== 'breast') rec.live = undefined;   // the feed timer is over
       await store.saveEvent(rec);
       closeIt(); toast(isNew ? 'Feed saved' : 'Feed updated'); onDone?.();
     });

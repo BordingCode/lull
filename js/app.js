@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=27';
-import * as sheets from './sheets.js?v=27';
-import * as sounds from './sounds.js?v=27';
-import * as notify from './notify.js?v=27';
-import * as cloud from './cloud.js?v=27';
-import * as monitor from './monitor.js?v=27';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=27';
-import { predict, ongoingSleep, isNightSleep, observedWindows } from './predict.js?v=27';
-import { band, ageDays, BANDS } from './science.js?v=27';
-import { trend } from './stats.js?v=27';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=27';
-import * as growth from './growth.js?v=27';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=27';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=27';
-import { looksLikeEmail } from './vault.js?v=27';
+import * as store from './store.js?v=28';
+import * as sheets from './sheets.js?v=28';
+import * as sounds from './sounds.js?v=28';
+import * as notify from './notify.js?v=28';
+import * as cloud from './cloud.js?v=28';
+import * as monitor from './monitor.js?v=28';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=28';
+import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep } from './predict.js?v=28';
+import { band, ageDays, BANDS } from './science.js?v=28';
+import { trend } from './stats.js?v=28';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=28';
+import * as growth from './growth.js?v=28';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=28';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=28';
+import { looksLikeEmail } from './vault.js?v=28';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -132,7 +132,6 @@ function homeScreen() {
   }
 
   /* --- quick log --- */
-  const feedingNow = evs.find(e => e.type === 'feed' && !e.end && e.kind === 'breast' && e.live);
   const quick = `<div class="quick">
       <button data-log="breast"><span class="emoji">🤱</span>Breast</button>
       <button data-log="bottle"><span class="emoji">🍼</span>Bottle</button>
@@ -172,7 +171,42 @@ function homeScreen() {
     <h2 class="sec">Latest</h2>
     <div class="card" id="recent">${recent.map(entryRow).join('')}</div>` : '';
 
-  return ring + morning + pred + quick + todayCard + recentCard;
+  return ring + feedBar(evs, now) + morning + pred + quick + todayCard + recentCard;
+}
+
+/* ---------------- breastfeeding timer bar ---------------- */
+const liveFeed = (evs) => evs.find(e => e.type === 'feed' && e.kind === 'breast' && e.live && !e.end);
+const sideLabel = (s) => s === 'both' ? 'Both sides' : `${s[0].toUpperCase()}${s.slice(1)} side`;
+
+function feedBar(evs, now) {
+  const live = liveFeed(evs);
+  if (live) {
+    return `<div class="feedbar live">
+      <div class="t">🤱 <b>${dur((now - live.start) / MIN)}</b><small>${sideLabel(live.side)}</small></div>
+      ${live.side === 'both' ? '' : '<button id="feed-switch">Switch</button>'}
+      <button id="feed-stop">Done</button>
+    </div>`;
+  }
+  const last = [...evs].reverse().find(e => e.type === 'feed' && e.kind === 'breast' && e.side);
+  return `<div class="feedbar">
+    <div class="t">🤱 Breastfeed${last ? `<small>Last: ${last.side} · ${relative(last.end || last.start, now)}</small>` : ''}</div>
+    <button data-feed-start="left">Left</button>
+    <button data-feed-start="right">Right</button>
+  </div>`;
+}
+
+async function stopFeed() {
+  const f = liveFeed(store.events()); if (!f) return;
+  const mins = (Date.now() - f.start) / MIN;
+  if (mins > 90) {                       // the timer was almost certainly left running
+    sheets.feedSheet({ ...f, live: undefined }, { unit: unit(), onDone: render });
+    sheets.toast(`That timer ran ${dur(mins)}. Enter the real minutes`);
+    return;
+  }
+  const minutes = Math.max(1, Math.round(mins));
+  await store.saveEvent({ ...f, end: f.start + minutes * MIN, minutes, live: undefined });
+  sheets.toast(`Feed saved · ${dur(minutes)}`);
+  render();
 }
 
 /* ---------------- entry rows ---------------- */
@@ -186,7 +220,7 @@ function entryRow(e) {
     ic = e.end ? (isNightSleep(e) ? '🌛' : '😴') : '😴';
   } else if (e.type === 'feed') {
     cls = 'feed';
-    if (e.kind === 'breast') { ic = '🤱'; title = 'Breastfeed'; sub = [e.side && `${e.side} side`, e.minutes && dur(e.minutes)].filter(Boolean).join(' · '); }
+    if (e.kind === 'breast') { ic = '🤱'; title = 'Breastfeed'; sub = e.live && !e.end ? `${sideLabel(e.side)} · feeding now` : [e.side && sideLabel(e.side), e.minutes && dur(e.minutes)].filter(Boolean).join(' · '); }
     else if (e.kind === 'bottle') { ic = '🍼'; title = 'Bottle'; sub = e.amountMl ? amount(e.amountMl) : ''; }
     else { ic = '🥣'; title = 'Solids'; sub = e.food || ''; }
   } else if (e.type === 'pump') {
@@ -908,6 +942,15 @@ function wireScreen() {
     else if (k === 'pump') sheets.pumpSheet(null, { unit: unit(), onDone: render });
     else sheets.feedSheet(null, { kind: k, unit: unit(), onDone: render });
   }));
+  screen.querySelectorAll('[data-feed-start]').forEach(btn => btn.addEventListener('click', async () => {
+    await store.saveEvent({ type: 'feed', kind: 'breast', start: Date.now(), side: btn.dataset.feedStart, live: true });
+    sheets.toast('Feed started'); render();
+  }));
+  screen.querySelector('#feed-switch')?.addEventListener('click', async () => {
+    const f = liveFeed(store.events());
+    if (f) { await store.saveEvent({ ...f, side: 'both' }); render(); }
+  });
+  screen.querySelector('#feed-stop')?.addEventListener('click', stopFeed);
   screen.querySelectorAll('[data-edit]').forEach(row => row.addEventListener('click', () => {
     const ev = store.events().find(e => e.id === row.dataset.edit);
     if (ev) sheets.editEvent(ev, { unit: unit(), onDone: render });
@@ -977,6 +1020,22 @@ function wireScreen() {
       sheets.toast(Number(e.detail) ? `Fading out in ${e.detail} min` : 'Timer off');
     });
   }
+}
+
+/* ---------------- "did you forget a sleep?" ---------------- */
+// Only asked on coming into the app, never mid-use, and once per awake stretch.
+let checkingMissed = false;
+async function checkMissedSleep() {
+  if (checkingMissed) return;
+  checkingMissed = true;
+  // the other phone may have logged that sleep, so hear from the cloud first
+  await Promise.race([cloud.settled(), new Promise(r => setTimeout(r, 5000))]);
+  checkingMissed = false;
+  if (document.hidden || $('#app').hidden || document.querySelector('.sheet') || monitor.status().open) return;
+  const m = missedSleep({ events: store.events(), birthMs: birthMs(), nowMs: Date.now() });
+  if (!m || S().missedAsked === m.awakeSince) return;
+  store.setSetting('missedAsked', m.awakeSince);
+  sheets.missedSleepSheet(m, { name: babyName(), onDone: render });
 }
 
 /* ---------------- monitor chip in the top bar ---------------- */
@@ -1050,7 +1109,8 @@ async function boot() {
   render();
   // Live countdowns: cheap re-render every 15 s, and immediately on return.
   tickTimer = setInterval(() => { if (!document.querySelector('.sheet') && tab !== 'guide') render(); }, 15000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { render(); checkMissedSleep(); } });
+  checkMissedSleep();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
