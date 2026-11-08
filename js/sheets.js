@@ -1,9 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=29';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=29';
-import { esc } from './charts.js?v=29';
-import { isNightSleep } from './predict.js?v=29';
-import { MEASURES } from './growth.js?v=29';
+import * as store from './store.js?v=30';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=30';
+import { esc } from './charts.js?v=30';
+import { isNightSleep } from './predict.js?v=30';
+import { MEASURES } from './growth.js?v=30';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -183,7 +183,8 @@ export function missedSleepSheet(m, { name, onDone } = {}) {
 export function overdueSleepSheet(o, { name, onDone } = {}) {
   const since = startOfDay(o.sleep.start) === startOfDay(Date.now()) ? clock(o.sleep.start)
     : `${new Date(o.sleep.start).toLocaleDateString(undefined, { weekday: 'long' })} ${clock(o.sleep.start)}`;
-  const usual = o.night ? `The longest night stretch lately is ${dur(o.usualMin)}.` : `The usual nap is ${dur(o.usualMin)}.`;
+  const usual = o.night ? `The longest night stretch lately is ${dur(o.usualMin)}.`
+    : o.ageBased ? `Naps at this age usually last up to ${dur(o.usualMin)}.` : `The usual nap is ${dur(o.usualMin)}.`;
   const html = `
     <h3>😴 Still asleep?</h3>
     <p class="muted" style="margin:0 0 16px">The log has ${esc(name)} asleep since ${since}, which is ${dur(o.elapsedMin)}. ${usual}</p>

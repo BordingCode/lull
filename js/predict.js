@@ -9,8 +9,8 @@
 // Nothing here pretends to be more precise than it is: everything comes out as
 // a range plus a confidence level.
 
-import { band, BEDTIME_STRETCH } from './science.js?v=29';
-import { MIN, median, clamp } from './util.js?v=29';
+import { band, BEDTIME_STRETCH } from './science.js?v=30';
+import { MIN, median, clamp } from './util.js?v=30';
 
 const MAX_SANE_WINDOW = 8 * 60;   // minutes; longer gaps = untracked time, not a real wake window
 const MIN_SANE_WINDOW = 10;       // minutes; shorter = a logging correction
@@ -184,7 +184,7 @@ export function overdueSleep({ events, birthMs, nowMs }) {
 
   const b = band(birthMs, nowMs);
   const night = startsAtNight(going.start);
-  let usualMin;
+  let usualMin, ageBased = false;
   if (night) {
     const since = nowMs - 14 * 24 * 60 * MIN;
     const nights = sleeps(events).filter(s => s.end && s.start >= since && startsAtNight(s.start))
@@ -192,12 +192,13 @@ export function overdueSleep({ events, birthMs, nowMs }) {
     usualMin = Math.max(MIN_NIGHT, ...nights);
   } else {
     const naps = observedNaps(events, nowMs);
-    usualMin = naps.length >= 3 ? median(naps.slice(0, 8)) : b.napLen[1];
+    ageBased = naps.length < 3;
+    usualMin = ageBased ? b.napLen[1] : median(naps.slice(0, 8));
   }
   const elapsedMin = (nowMs - going.start) / MIN;
   if (elapsedMin < usualMin + ASK_MARGIN) return null;
 
-  return { key: going.start, sleep: going, night, elapsedMin, usualMin,
+  return { key: going.start, sleep: going, night, ageBased, elapsedMin, usualMin,
            suggestEnd: Math.round((going.start + usualMin * MIN) / (5 * MIN)) * 5 * MIN };
 }
 

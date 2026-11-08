@@ -1,17 +1,17 @@
 // ===== Lull service worker =====
 // Bump CACHE (and the ?v= numbers in index.html) whenever a shell file changes,
 // or phones keep serving the old app.
-const CACHE = 'lull-v29';
+const CACHE = 'lull-v30';
 const SHELL = [
   './', './index.html',
-  './css/style.css?v=29',
-  './js/app.js?v=29', './js/store.js?v=29', './js/predict.js?v=29', './js/science.js?v=29',
-  './js/stats.js?v=29', './js/util.js?v=29', './js/charts.js?v=29', './js/sheets.js?v=29',
-  './js/sounds.js?v=29', './js/notify.js?v=29', './js/growth.js?v=29', './js/who.js?v=29',
-  './js/vault.js?v=29', './js/cloud.js?v=29', './js/days.js?v=29',
-  './js/guide.js?v=29', './js/monitor.js?v=29', './js/mon-store.js?v=29', './js/mon-signal.js?v=29', './js/mon-peer.js?v=29',
-  './js/mon-meter.js?v=29', './js/mon-alarm.js?v=29', './js/mon-battery.js?v=29',
-  './manifest.json?v=29',
+  './css/style.css?v=30',
+  './js/app.js?v=30', './js/store.js?v=30', './js/predict.js?v=30', './js/science.js?v=30',
+  './js/stats.js?v=30', './js/util.js?v=30', './js/charts.js?v=30', './js/sheets.js?v=30',
+  './js/sounds.js?v=30', './js/notify.js?v=30', './js/growth.js?v=30', './js/who.js?v=30',
+  './js/vault.js?v=30', './js/cloud.js?v=30', './js/days.js?v=30',
+  './js/guide.js?v=30', './js/monitor.js?v=30', './js/mon-store.js?v=30', './js/mon-signal.js?v=30', './js/mon-peer.js?v=30',
+  './js/mon-meter.js?v=30', './js/mon-alarm.js?v=30', './js/mon-battery.js?v=30',
+  './manifest.json?v=30',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable.png',
 ];
 

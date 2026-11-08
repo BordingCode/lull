@@ -14,13 +14,13 @@
 // Read the rules in CLAUDE.md before changing anything here: the lost-link
 // alarm matters more than everything else in this file.
 
-import { S, load, set, newCode, pretty, normalise, forgetPairing } from './mon-store.js?v=29';
-import { Signal, iceServers, API_URL } from './mon-signal.js?v=29';
-import { Peer } from './mon-peer.js?v=29';
-import { Meter, NoiseGate, sensToDb, dbToBar } from './mon-meter.js?v=29';
-import * as Alarm from './mon-alarm.js?v=29';
-import { Battery, batteryText, batteryWarning } from './mon-battery.js?v=29';
-import { toast } from './sheets.js?v=29';
+import { S, load, set, newCode, pretty, normalise, forgetPairing } from './mon-store.js?v=30';
+import { Signal, iceServers, API_URL } from './mon-signal.js?v=30';
+import { Peer } from './mon-peer.js?v=30';
+import { Meter, NoiseGate, sensToDb, dbToBar } from './mon-meter.js?v=30';
+import * as Alarm from './mon-alarm.js?v=30';
+import { Battery, batteryText, batteryWarning } from './mon-battery.js?v=30';
+import { toast } from './sheets.js?v=30';
 
 const $ = (s) => document.querySelector(s);
 const on = (sel, ev, fn) => $(sel).addEventListener(ev, fn);

@@ -213,6 +213,7 @@ test('overdueSleep: with no history, a nap is normal up to the top of the age ra
   const o = overdueSleep({ events: evs, birthMs: fiveMonths, nowMs: at(11, 30) });
   assert.equal(o.night, false);
   assert.equal(o.usualMin, 120);
+  assert.equal(o.ageBased, true);
   assert.equal(o.key, at(9, 0));
   assert.equal(o.suggestEnd, at(11, 0));
 });

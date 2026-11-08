@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=29';
-import * as sheets from './sheets.js?v=29';
-import * as sounds from './sounds.js?v=29';
-import * as notify from './notify.js?v=29';
-import * as cloud from './cloud.js?v=29';
-import * as monitor from './monitor.js?v=29';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=29';
-import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=29';
-import { band, ageDays, BANDS } from './science.js?v=29';
-import { trend } from './stats.js?v=29';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=29';
-import * as growth from './growth.js?v=29';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=29';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=29';
-import { looksLikeEmail } from './vault.js?v=29';
+import * as store from './store.js?v=30';
+import * as sheets from './sheets.js?v=30';
+import * as sounds from './sounds.js?v=30';
+import * as notify from './notify.js?v=30';
+import * as cloud from './cloud.js?v=30';
+import * as monitor from './monitor.js?v=30';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=30';
+import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=30';
+import { band, ageDays, BANDS } from './science.js?v=30';
+import { trend } from './stats.js?v=30';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=30';
+import * as growth from './growth.js?v=30';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=30';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=30';
+import { looksLikeEmail } from './vault.js?v=30';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
