@@ -1,5 +1,5 @@
 // ===== Lull — tiny inline-SVG charts (no libraries) =====
-import { DAY, HOUR, MIN, dur, clock } from './util.js?v=31';
+import { DAY, HOUR, MIN, dur, clock } from './util.js?v=32';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
@@ -207,9 +207,9 @@ export function trendBars(points, { value, inner, band, color, outer, fmt, label
  * WHO growth chart: percentile curves plus the baby's own measurements. SVG
  * with a fixed aspect ratio (no stretching), so the text inside stays round.
  */
-export function growthChart({ curves, points, toMonths, unit, ageNow }) {
+export function growthChart({ curves, points, toMonths, unit, ageNow, projected = [] }) {
   const W = 340, H = 230, L = 34, R = 30, T = 10, B = 24;
-  const all = curves.flatMap(c => c.pts.map(p => p[1])).concat(points.map(p => p[1]));
+  const all = curves.flatMap(c => c.pts.map(p => p[1])).concat(points.map(p => p[1]), projected.map(p => p[1]));
   let lo = Math.floor(Math.min(...all)), hi = Math.ceil(Math.max(...all));
   const span = hi - lo, tick = span > 40 ? 10 : span > 16 ? 5 : span > 8 ? 2 : 1;
   lo = Math.floor(lo / tick) * tick; hi = Math.ceil(hi / tick) * tick;
@@ -233,6 +233,10 @@ export function growthChart({ curves, points, toMonths, unit, ageNow }) {
     out += `<path d="${d}" fill="none" stroke="var(--fg-faint)" stroke-width="${c.pct === 50 ? 1.8 : 1}" opacity="${c.pct === 50 ? .9 : .55}"/>`;
     const last = c.pts[c.pts.length - 1];
     out += `<text x="${(x(last[0]) + 3).toFixed(1)}" y="${(y(last[1]) + 3.5).toFixed(1)}" class="p">${c.pct}</text>`;
+  }
+  if (projected.length) {
+    const d = projected.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
+    out += `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-dasharray="5 4"/>`;
   }
   if (points.length) {
     const d = points.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');

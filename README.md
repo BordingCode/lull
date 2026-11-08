@@ -44,7 +44,8 @@ Modelled on the app *Luli*, with everything unlocked and no subscription.
   feeds/diapers per day. **Over time** charts total sleep (night vs naps,
   against the age guide), longest night stretch, feeds and diapers per day over
   2 weeks, a month, 3 months or everything (weekly averages past 45 days).
-- **Growth** — weight, length and head circumference in kg/cm, plotted on the
+- **Growth** — today's and the next two months' expected measurements if the
+  baby stays on their curve, and weight, length and head circumference in kg/cm, plotted on the
   WHO Child Growth Standards (0–2 years, girls/boys) with the percentile in
   plain words.
 - **Night** — the **baby monitor** and the sleep sounds. The monitor turns two

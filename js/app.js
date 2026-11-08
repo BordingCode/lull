@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=31';
-import * as sheets from './sheets.js?v=31';
-import * as sounds from './sounds.js?v=31';
-import * as notify from './notify.js?v=31';
-import * as cloud from './cloud.js?v=31';
-import * as monitor from './monitor.js?v=31';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=31';
-import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=31';
-import { band, ageDays, BANDS } from './science.js?v=31';
-import { trend } from './stats.js?v=31';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=31';
-import * as growth from './growth.js?v=31';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=31';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=31';
-import { looksLikeEmail } from './vault.js?v=31';
+import * as store from './store.js?v=32';
+import * as sheets from './sheets.js?v=32';
+import * as sounds from './sounds.js?v=32';
+import * as notify from './notify.js?v=32';
+import * as cloud from './cloud.js?v=32';
+import * as monitor from './monitor.js?v=32';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=32';
+import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=32';
+import { band, ageDays, BANDS } from './science.js?v=32';
+import { trend } from './stats.js?v=32';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=32';
+import * as growth from './growth.js?v=32';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=32';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=32';
+import { looksLikeEmail } from './vault.js?v=32';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -474,6 +474,28 @@ function trendSection(evs, now) {
 
 /* ---------------- growth screen ---------------- */
 const kgCm = (k, v) => k === 'weight' ? `${v.toFixed(2).replace(/0$/, '')} kg` : `${v.toFixed(1)} cm`;
+// Estimates are rounded on purpose: 0.1 kg, half a centimetre.
+const approx = (k, v) => k === 'weight' ? `~${v.toFixed(1)} kg` : `~${(Math.round(v * 2) / 2).toFixed(1)} cm`;
+
+/** "If they stay on their curve": today and the next two months, for every measure with data. */
+function expectedCard(evs, sex, birth, now) {
+  const rows = Object.entries(growth.MEASURES).map(([k, m]) => {
+    const e = growth.expected(evs, k, sex, birth, now);
+    if (!e || e.values[0] == null) return '';
+    return `<tr><th scope="row">${m.label}<small>${growth.pctLabel(e.pct)} percentile${e.count === 1 ? ' · 1 measurement' : ''}</small></th>
+      ${e.values.map((v, i) => `<td class="${i ? '' : 'now'}">${v == null ? '—' : approx(k, v)}</td>`).join('')}</tr>`;
+  }).join('');
+  if (!rows) return '';
+  return `<div class="card tight">
+    <div class="trend-head"><b>If ${esc(babyName())} stays on the curve</b></div>
+    <table class="gexp">
+      <thead><tr><td></td><th scope="col">Today</th><th scope="col">In 1 month</th><th scope="col">In 2 months</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="faint" style="margin:8px 0 0">Worked out from up to the last 3 measurements of each, skipping the first two weeks
+    when there are later ones. It's an estimate of where the curve leads, not a target.</p>
+  </div>`;
+}
 
 function growthScreen() {
   const now = Date.now();
@@ -517,16 +539,18 @@ function growthScreen() {
     const curves = growth.CURVES.map(pct => ({ pct, pts: growth.curve(growthMeasure, sex, pct, toMonths) }));
     const last = growth.series(evs, growthMeasure).at(-1);
     const a = last ? growth.assess(growthMeasure, sex, birth, last.start, last[m.field]) : null;
+    const exp = growth.expected(evs, growthMeasure, sex, birth, now);
+    const projected = exp && exp.lastAge < toMonths ? growth.projection(growthMeasure, sex, exp.z, exp.lastAge, toMonths) : [];
     chart = `<div class="card tight">
       <div class="trend-head"><b>${m.label} for age · WHO ${sex === 'girl' ? 'girls' : 'boys'}</b>
         <span>${a ? `${growth.pctLabel(a.pct)} percentile` : ''}</span></div>
-      ${growthChart({ curves, points: pts, toMonths, unit: m.unit, ageNow })}
-      <div class="legend"><span>${`<i style="background:var(--accent)"></i>`}${esc(babyName())}</span>
+      ${growthChart({ curves, points: pts, toMonths, unit: m.unit, ageNow, projected })}
+      <div class="legend"><span>${`<i style="background:var(--accent)"></i>`}${esc(babyName())}${projected.length ? ', dashed if the curve continues' : ''}</span>
         <span>Grey lines: 3rd, 15th, 50th, 85th, 97th percentile</span></div>
       ${a ? `<p class="faint" style="margin:8px 0 0">${growth.pctLabel(a.pct)} percentile means that of 100 healthy
         ${sex === 'girl' ? 'girls' : 'boys'} the same age, about ${Math.max(1, Math.min(99, Math.round(a.pct)))} measure less.
         It is not a score — what matters is following a curve over time.</p>` : ''}
-    </div>`;
+    </div>${expectedCard(evs, sex, birth, now)}`;
   } else {
     chart = `<div class="card"><div class="faint">Add a birth date in settings to see the growth curves.</div></div>`;
   }

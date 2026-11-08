@@ -1,7 +1,7 @@
 // Unit tests for the WHO growth maths and the over-time trends.  Run: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lmsAt, zScore, valueAtZ, normCdf, zForPercentile, assess, pctLabel, ageMonths, curve, series } from '../js/growth.js';
+import { lmsAt, zScore, valueAtZ, normCdf, zForPercentile, assess, pctLabel, ageMonths, curve, series, expected, projection } from '../js/growth.js';
 import { trend } from '../js/stats.js';
 
 const DAY = 86400000, MIN = 60000;
@@ -109,3 +109,47 @@ test('trend: long spans become weekly averages, newest week complete', () => {
   near(points.at(-1).dayMin, (4 * 60 + 3 * 120) / 7, 1e-9, 'weekly mean');
   assert.equal(trend([], 14, now).points.length, 0);
 });
+
+/* ---------------- "if the baby stays on the curve" ---------------- */
+const born = new Date(2026, 0, 1, 12).getTime();
+const atMonths = (m) => born + m * 30.4375 * DAY;
+const onCurve = (z, ...months) => months.map(m => ({
+  type: 'growth', start: atMonths(m), weightKg: valueAtZ(z, lmsAt('weight', 'boy', m)),
+}));
+
+test('expected: a baby on the median line is expected on the WHO median later', () => {
+  const e = expected(onCurve(0, 1, 2, 3), 'weight', 'boy', born, atMonths(4), [0, 2]);
+  near(e.pct, 50, 0.01, 'still the 50th');
+  near(e.values[1], 7.934, 1e-3, 'published median at 6 months');
+  assert.equal(e.count, 3);
+  near(e.lastAge, 3, 1e-9, 'latest measurement');
+});
+
+test('expected: the average of the last three measurements decides the curve', () => {
+  const old = onCurve(2, 1);                      // an early high reading no longer counts
+  const evs = [...old, ...onCurve(-1, 2), ...onCurve(0, 3), ...onCurve(1, 4)];
+  near(expected(evs, 'weight', 'boy', born, atMonths(5)).z, 0, 1e-9, 'mean of -1, 0, 1');
+});
+
+test('expected: the first two weeks are skipped unless they are all there is', () => {
+  const evs = [...onCurve(-2, 0.1), ...onCurve(1, 2)];
+  assert.equal(expected(evs, 'weight', 'boy', born, atMonths(3)).count, 1);
+  near(expected(evs, 'weight', 'boy', born, atMonths(3)).z, 1, 1e-9, 'later reading only');
+  near(expected(onCurve(-2, 0.1), 'weight', 'boy', born, atMonths(1)).z, -2, 1e-9, 'early reading alone');
+});
+
+test('expected: nothing to go on, and the end of the chart', () => {
+  assert.equal(expected([], 'weight', 'boy', born, atMonths(3)), null);
+  assert.equal(expected(onCurve(0, 2), 'length', 'boy', born, atMonths(3)), null, 'other measure has no data');
+  const e = expected(onCurve(0, 23), 'weight', 'boy', born, atMonths(23.5));
+  assert.ok(e.values[0] > 0 && e.values[1] == null, 'a month ahead is past 24 months');
+  assert.equal(expected(onCurve(0, 23), 'weight', 'boy', born, atMonths(25)).values[0], null, 'today is past the chart');
+});
+
+test('projection follows one z-score and ends exactly at the chart edge', () => {
+  const p = projection('weight', 'boy', 0, 3.2, 6);
+  near(p[0][0], 3.2, 1e-9, 'starts at the last measurement');
+  assert.deepEqual(p.at(-1)[0], 6);
+  near(p.at(-1)[1], 7.934, 1e-3, 'on the median');
+});
+

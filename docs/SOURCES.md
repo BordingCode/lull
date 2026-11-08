@@ -68,3 +68,8 @@ cross-checked against the LMS values printed by Merck Manuals' WHO calculator.
 checks that Lull's percentiles reproduce WHO's own published percentile values.
 Between whole months L, M and S are interpolated linearly. A national chart
 (e.g. the one a Danish health visitor uses) can differ slightly from WHO.
+
+"If the baby stays on the curve" is Lull's own arithmetic on those same tables,
+not a WHO figure: it averages the z-score of the last three measurements
+(skipping the first two weeks if there are later ones) and reads that z-score
+off the curve at the later age. It's an estimate, not a target.

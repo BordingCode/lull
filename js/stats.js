@@ -2,8 +2,8 @@
 // Pure functions (unit-tested in tests/). Days are baby-days (wake-up to the
 // next wake-up, see days.js), so "night" means the night that follows the day.
 
-import { MIN, DAY, startOfDay } from './util.js?v=31';
-import { index, babyDay, currentDate, nextDate } from './days.js?v=31';
+import { MIN, DAY, startOfDay } from './util.js?v=32';
+import { index, babyDay, currentDate, nextDate } from './days.js?v=32';
 
 /* ---------- trends over weeks and months (Patterns → "Over time") ---------- */
 

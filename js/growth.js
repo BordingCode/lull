@@ -6,7 +6,7 @@
 // S linearly — the WHO daily tables differ from that by far less than a scale
 // can measure.
 
-import { WHO } from './who.js?v=31';
+import { WHO } from './who.js?v=32';
 
 export const MEASURES = {
   weight: { label: 'Weight', unit: 'kg', field: 'weightKg', step: 0.01, min: 0.5, max: 30 },
@@ -83,4 +83,38 @@ export function curve(measure, sex, pct, toMonths = MAX_MONTHS) {
 export function series(events, measure) {
   const f = MEASURES[measure].field;
   return events.filter(e => e.type === 'growth' && e[f] > 0).sort((a, b) => a.start - b.start);
+}
+
+const RECENT = 3;              // how many measurements decide which curve the baby is on
+const SETTLING_MONTHS = 14 / DAYS_PER_MONTH;   // weight drops and recovers just after birth
+
+/**
+ * Where the baby lands if they stay on the curve their recent measurements are on.
+ * "On a curve" = the same z-score: the average of the last few measurements, so
+ * one slightly-off reading doesn't move it, skipping the first two weeks unless
+ * there's nothing later. `values` lines up with `inMonths`; null = past the chart.
+ */
+export function expected(events, measure, sex, birthMs, nowMs, inMonths = [0, 1, 2]) {
+  const f = MEASURES[measure].field;
+  const pts = series(events, measure).filter(e => e.start <= nowMs)
+    .map(e => ({ age: ageMonths(birthMs, e.start), a: assess(measure, sex, birthMs, e.start, e[f]) }))
+    .filter(p => p.a);
+  if (!pts.length) return null;
+  const settled = pts.filter(p => p.age >= SETTLING_MONTHS);
+  const used = (settled.length ? settled : pts).slice(-RECENT);
+  const z = used.reduce((sum, p) => sum + p.a.z, 0) / used.length;
+  const age = ageMonths(birthMs, nowMs);
+  const values = inMonths.map(m => {
+    const lms = lmsAt(measure, sex, age + m);
+    return lms ? valueAtZ(z, lms) : null;
+  });
+  return { z, pct: normCdf(z) * 100, count: used.length, lastAge: pts.at(-1).age, values };
+}
+
+/** The curve at z-score `z` between two ages, every half month, for the chart. */
+export function projection(measure, sex, z, fromMonths, toMonths) {
+  const out = [];
+  for (let m = fromMonths; m < toMonths; m += 0.5) out.push([m, valueAtZ(z, lmsAt(measure, sex, m))]);
+  out.push([toMonths, valueAtZ(z, lmsAt(measure, sex, toMonths))]);
+  return out;
 }
