@@ -1,9 +1,9 @@
 // ===== Lull — bottom sheets (logging + editing) =====
-import * as store from './store.js?v=28';
-import { MIN, clock, dur, startOfDay, pad } from './util.js?v=28';
-import { esc } from './charts.js?v=28';
-import { isNightSleep } from './predict.js?v=28';
-import { MEASURES } from './growth.js?v=28';
+import * as store from './store.js?v=29';
+import { MIN, clock, dur, startOfDay, pad } from './util.js?v=29';
+import { esc } from './charts.js?v=29';
+import { isNightSleep } from './predict.js?v=29';
+import { MEASURES } from './growth.js?v=29';
 
 const root = () => document.getElementById('sheet-root');
 
@@ -167,7 +167,7 @@ export function missedSleepSheet(m, { name, onDone } = {}) {
   const html = `
     <h3>🌙 Forgot to log a sleep?</h3>
     <p class="muted" style="margin:0 0 16px">The log has ${esc(name)} awake since ${since}, which is ${dur(m.awakeMin)}.
-    That's well past the usual ${dur(m.usual[0])}–${dur(m.usual[1])}.</p>
+    That's past the usual ${dur(m.usual[0])}–${dur(m.usual[1])}.</p>
     <div class="row">
       <button class="btn ghost" id="ms-no">No, still awake</button>
       <button class="btn" id="ms-yes">Yes, add sleep</button>
@@ -176,6 +176,25 @@ export function missedSleepSheet(m, { name, onDone } = {}) {
     sheet.querySelector('#ms-no').addEventListener('click', closeIt);
     sheet.querySelector('#ms-yes').addEventListener('click', () =>
       sleepSheet({ type: 'sleep', start: m.suggestStart, end: m.suggestEnd }, { onDone }));
+  });
+}
+
+/* ---------- "is the baby still asleep?" ---------- */
+export function overdueSleepSheet(o, { name, onDone } = {}) {
+  const since = startOfDay(o.sleep.start) === startOfDay(Date.now()) ? clock(o.sleep.start)
+    : `${new Date(o.sleep.start).toLocaleDateString(undefined, { weekday: 'long' })} ${clock(o.sleep.start)}`;
+  const usual = o.night ? `The longest night stretch lately is ${dur(o.usualMin)}.` : `The usual nap is ${dur(o.usualMin)}.`;
+  const html = `
+    <h3>😴 Still asleep?</h3>
+    <p class="muted" style="margin:0 0 16px">The log has ${esc(name)} asleep since ${since}, which is ${dur(o.elapsedMin)}. ${usual}</p>
+    <div class="row">
+      <button class="btn ghost" id="os-yes">Yes, still asleep</button>
+      <button class="btn" id="os-woke">No, add wake-up</button>
+    </div>`;
+  openSheet(html, (sheet, closeIt) => {
+    sheet.querySelector('#os-yes').addEventListener('click', closeIt);
+    sheet.querySelector('#os-woke').addEventListener('click', () =>
+      sleepSheet({ ...o.sleep, end: o.suggestEnd }, { onDone }));
   });
 }
 

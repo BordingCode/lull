@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=28';
-import * as sheets from './sheets.js?v=28';
-import * as sounds from './sounds.js?v=28';
-import * as notify from './notify.js?v=28';
-import * as cloud from './cloud.js?v=28';
-import * as monitor from './monitor.js?v=28';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=28';
-import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep } from './predict.js?v=28';
-import { band, ageDays, BANDS } from './science.js?v=28';
-import { trend } from './stats.js?v=28';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=28';
-import * as growth from './growth.js?v=28';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=28';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=28';
-import { looksLikeEmail } from './vault.js?v=28';
+import * as store from './store.js?v=29';
+import * as sheets from './sheets.js?v=29';
+import * as sounds from './sounds.js?v=29';
+import * as notify from './notify.js?v=29';
+import * as cloud from './cloud.js?v=29';
+import * as monitor from './monitor.js?v=29';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=29';
+import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=29';
+import { band, ageDays, BANDS } from './science.js?v=29';
+import { trend } from './stats.js?v=29';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=29';
+import * as growth from './growth.js?v=29';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=29';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=29';
+import { looksLikeEmail } from './vault.js?v=29';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -1022,8 +1022,8 @@ function wireScreen() {
   }
 }
 
-/* ---------------- "did you forget a sleep?" ---------------- */
-// Only asked on coming into the app, never mid-use, and once per awake stretch.
+/* ---------------- "did you forget a sleep, or a wake-up?" ---------------- */
+// Only asked on coming into the app, never mid-use, and once per sleep or awake stretch.
 let checkingMissed = false;
 async function checkMissedSleep() {
   if (checkingMissed) return;
@@ -1032,10 +1032,12 @@ async function checkMissedSleep() {
   await Promise.race([cloud.settled(), new Promise(r => setTimeout(r, 5000))]);
   checkingMissed = false;
   if (document.hidden || $('#app').hidden || document.querySelector('.sheet') || monitor.status().open) return;
-  const m = missedSleep({ events: store.events(), birthMs: birthMs(), nowMs: Date.now() });
-  if (!m || S().missedAsked === m.awakeSince) return;
-  store.setSetting('missedAsked', m.awakeSince);
-  sheets.missedSleepSheet(m, { name: babyName(), onDone: render });
+  const facts = { events: store.events(), birthMs: birthMs(), nowMs: Date.now() };
+  const opts = { name: babyName(), onDone: render };
+  const over = overdueSleep(facts), m = over || missedSleep(facts);
+  if (!m || S().missedAsked === m.key) return;
+  store.setSetting('missedAsked', m.key);
+  if (over) sheets.overdueSleepSheet(over, opts); else sheets.missedSleepSheet(m, opts);
 }
 
 /* ---------------- monitor chip in the top bar ---------------- */

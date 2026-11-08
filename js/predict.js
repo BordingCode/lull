@@ -9,8 +9,8 @@
 // Nothing here pretends to be more precise than it is: everything comes out as
 // a range plus a confidence level.
 
-import { band, BEDTIME_STRETCH } from './science.js?v=28';
-import { MIN, median, clamp } from './util.js?v=28';
+import { band, BEDTIME_STRETCH } from './science.js?v=29';
+import { MIN, median, clamp } from './util.js?v=29';
 
 const MAX_SANE_WINDOW = 8 * 60;   // minutes; longer gaps = untracked time, not a real wake window
 const MIN_SANE_WINDOW = 10;       // minutes; shorter = a logging correction
@@ -19,10 +19,18 @@ const NIGHT_FROM = 19, NIGHT_TO = 5;          // the hours we treat as "the nigh
 const NIGHT_FALLBACK = [20, 60];              // typical awake stretch at a night waking
 const GAP_IN_LOG = 7 * 60;                    // minutes; past this Home says the log has a gap
 const MAX_ASK_AFTER = 24 * 60;                // minutes; older than this, don't ask about a missed sleep
+const ASK_MARGIN = 30;                        // minutes past normal before the log is questioned
+const MIN_NIGHT = 10 * 60;                    // minutes; a night sleep this long is never queried
 
 export const isNightHour = (ms) => {
   const h = new Date(ms).getHours();
   return h >= NIGHT_FROM || h < NIGHT_TO;
+};
+
+/** Does a sleep starting at this time count as the night, for the Home screen? */
+const startsAtNight = (ms) => {
+  const h = new Date(ms).getHours();
+  return h >= 17 || h <= 4;
 };
 
 export const sleeps = (events) => events
@@ -129,8 +137,8 @@ export function confidenceOf(n) {
 
 /**
  * Has the log probably missed a sleep? True when the baby has, on paper, been
- * awake way past their usual window. Uses daytime windows even at night, so an
- * ordinary long evening stretch isn't mistaken for a forgotten sleep.
+ * awake past the end of their usual window by ASK_MARGIN. Uses daytime windows
+ * even at night, so an ordinary long evening stretch isn't mistaken for one.
  * Returns null when there's nothing to ask, otherwise the numbers for the
  * question plus suggested times to pre-fill (rounded: they are only a guess).
  */
@@ -142,9 +150,14 @@ export function missedSleep({ events, birthMs, nowMs }) {
   const awakeMin = (nowMs - woke) / MIN;
   const b = band(birthMs, nowMs);
   const { minutes, range } = blendWindow(b.ww, observedWindows(events, nowMs, 7, 'day'));
-  // "Way past": a clear margin beyond the top of the window, and never later
-  // than the point where Home already says there's a gap in the log.
-  const limit = Math.min(range[1] + Math.max(60, minutes * 0.5), GAP_IN_LOG);
+  // The run-up to bedtime is normally the longest stretch, as in predict().
+  const expected = new Date(woke + minutes * MIN);
+  const bedtime = expected.getHours() + expected.getMinutes() / 60 >= BEDTIME_HOUR
+    && napsToday(events, nowMs) >= b.naps[0];
+  const stretch = bedtime ? BEDTIME_STRETCH : 1;
+  const usual = [range[0] * stretch, range[1] * stretch];
+  // Never later than the point where Home already says there's a gap in the log.
+  const limit = Math.min(usual[1] + ASK_MARGIN, GAP_IN_LOG);
   if (awakeMin < limit || awakeMin > MAX_ASK_AFTER) return null;   // too long ago = logging has lapsed
 
   const round5 = (ms) => Math.round(ms / (5 * MIN)) * 5 * MIN;
@@ -156,7 +169,36 @@ export function missedSleep({ events, birthMs, nowMs }) {
   // is probably still going; one from last night has ended by now.
   const end = isNightHour(start) ? (isNightHour(nowMs) ? null : nowMs)
                                  : (napEnd >= nowMs ? null : napEnd);
-  return { awakeSince: woke, awakeMin, usual: range, suggestStart: start, suggestEnd: end };
+  return { key: woke, awakeSince: woke, awakeMin, usual, suggestStart: start, suggestEnd: end };
+}
+
+/**
+ * Has a sleep been left running? True when the sleep on the clock has gone on
+ * past what's normal by ASK_MARGIN. Normal is the baby's own usual nap, or the
+ * top of the age range until there are three naps to go on. For a night it's the
+ * longest recent stretch, and at least MIN_NIGHT, so a good night isn't queried.
+ */
+export function overdueSleep({ events, birthMs, nowMs }) {
+  const going = ongoingSleep(events);
+  if (!birthMs || !going) return null;
+
+  const b = band(birthMs, nowMs);
+  const night = startsAtNight(going.start);
+  let usualMin;
+  if (night) {
+    const since = nowMs - 14 * 24 * 60 * MIN;
+    const nights = sleeps(events).filter(s => s.end && s.start >= since && startsAtNight(s.start))
+      .map(s => (s.end - s.start) / MIN);
+    usualMin = Math.max(MIN_NIGHT, ...nights);
+  } else {
+    const naps = observedNaps(events, nowMs);
+    usualMin = naps.length >= 3 ? median(naps.slice(0, 8)) : b.napLen[1];
+  }
+  const elapsedMin = (nowMs - going.start) / MIN;
+  if (elapsedMin < usualMin + ASK_MARGIN) return null;
+
+  return { key: going.start, sleep: going, night, elapsedMin, usualMin,
+           suggestEnd: Math.round((going.start + usualMin * MIN) / (5 * MIN)) * 5 * MIN };
 }
 
 /**
@@ -193,7 +235,7 @@ export function predict({ events, birthMs, nowMs }) {
   if (going) {
     const elapsed = (nowMs - going.start) / MIN;
     const napMid = naps.length >= 3 ? median(naps.slice(0, 8)) : (b.napLen[0] + b.napLen[1]) / 2;
-    const night = new Date(going.start).getHours() >= 17 || new Date(going.start).getHours() <= 4;
+    const night = startsAtNight(going.start);
     out.asleepSince = going.start;
     out.sleepMin = elapsed;
     out.isNight = night;   // decided by the clock, so the label and the card agree

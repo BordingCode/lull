@@ -1,8 +1,8 @@
 // Unit tests for Lull's prediction + stats maths.  Run: node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { predict, observedWindows, blendWindow, isNightSleep, napsToday, ongoingSleep, lastWakeAt, missedSleep } from '../js/predict.js';
-import { band, ageDays } from '../js/science.js';
+import { predict, observedWindows, blendWindow, isNightSleep, napsToday, ongoingSleep, lastWakeAt, missedSleep, overdueSleep } from '../js/predict.js';
+import { band, ageDays, BEDTIME_STRETCH } from '../js/science.js';
 import { dur, relative, overlapMin, median, startOfDay } from '../js/util.js';
 
 const MIN = 60000, HOUR = 3600000, DAY = 86400000;
@@ -168,7 +168,8 @@ const fiveMonths = T - 150 * DAY;   // awake window 2h–2h30 by age, no measure
 test('missedSleep stays quiet within a normal awake stretch and asks when way past it', () => {
   const evs = [sleep(9, 0, 10, 0)];
   assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(12, 30) }), null, 'in the window');
-  assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(13, 0) }), null, 'a bit late is not way past');
+  assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(12, 59) }), null, 'under 30 min past the window');
+  assert.ok(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(13, 0) }), '30 min past the 2h30 window');
   const m = missedSleep({ events: evs, birthMs: fiveMonths, nowMs: at(14, 0) });
   assert.ok(m, '4h awake at 5 months');
   assert.equal(m.awakeSince, at(10, 0));
@@ -195,4 +196,42 @@ test('missedSleep suggests a finished nap by day, and a finished night the next 
   assert.ok(day.suggestEnd > day.suggestStart && day.suggestEnd < at(16, 0));
   const morning = missedSleep({ events: [sleep(16, 0, 18, 0, -1)], birthMs: fiveMonths, nowMs: at(8, 0) });
   assert.equal(morning.suggestEnd, at(8, 0));
+});
+
+test('missedSleep allows for the longer stretch before bedtime', () => {
+  const evs = [sleep(8, 0, 9, 0), sleep(11, 15, 12, 15), sleep(14, 30, 15, 30)];
+  const limit = 150 * BEDTIME_STRETCH + 30;      // minutes after waking at 15:30
+  const t = (mins) => at(15, 30) + mins * MIN;
+  assert.equal(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: t(limit - 2) }), null);
+  assert.ok(missedSleep({ events: evs, birthMs: fiveMonths, nowMs: t(limit + 2) }));
+});
+
+/* ---------------- "still asleep?" ---------------- */
+test('overdueSleep: with no history, a nap is normal up to the top of the age range', () => {
+  const evs = [sleep(9, 0, null)];               // 20–24 weeks: naps up to 2h
+  assert.equal(overdueSleep({ events: evs, birthMs: fiveMonths, nowMs: at(11, 29) }), null);
+  const o = overdueSleep({ events: evs, birthMs: fiveMonths, nowMs: at(11, 30) });
+  assert.equal(o.night, false);
+  assert.equal(o.usualMin, 120);
+  assert.equal(o.key, at(9, 0));
+  assert.equal(o.suggestEnd, at(11, 0));
+});
+
+test("overdueSleep uses the baby's own usual nap once there are three", () => {
+  const evs = [sleep(9, 0, 9, 40, -3), sleep(9, 0, 9, 40, -2), sleep(9, 0, 9, 40, -1), sleep(9, 0, null)];
+  assert.equal(overdueSleep({ events: evs, birthMs: fiveMonths, nowMs: at(10, 9) }), null);
+  assert.equal(overdueSleep({ events: evs, birthMs: fiveMonths, nowMs: at(10, 10) }).usualMin, 40);
+});
+
+test('overdueSleep leaves a good night alone and respects a long recent stretch', () => {
+  const bed = [sleep(19, 0, null, null, -1)];
+  assert.equal(overdueSleep({ events: bed, birthMs: fiveMonths, nowMs: at(5, 29) }), null, 'under 10h30');
+  assert.ok(overdueSleep({ events: bed, birthMs: fiveMonths, nowMs: at(5, 30) }).night);
+  const long = [sleep(19, 0, 7, 0, -2, 1), ...bed];   // slept 12h the night before
+  assert.equal(overdueSleep({ events: long, birthMs: fiveMonths, nowMs: at(7, 29) }), null);
+  assert.equal(overdueSleep({ events: long, birthMs: fiveMonths, nowMs: at(7, 30) }).usualMin, 720);
+});
+
+test('overdueSleep has nothing to say when no sleep is running', () => {
+  assert.equal(overdueSleep({ events: [sleep(9, 0, 10, 0)], birthMs: fiveMonths, nowMs: at(14, 0) }), null);
 });

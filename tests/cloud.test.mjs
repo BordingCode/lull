@@ -10,8 +10,8 @@ const db = memoryDb();
 const server = await serve(0, db);
 const URL_ = `http://localhost:${server.address().port}`;
 globalThis.location = { search: `?cloud=${URL_}` };     // point cloud.js at the test server
-const store = await import('../js/store.js?v=28');
-const cloud = await import('../js/cloud.js?v=28');
+const store = await import('../js/store.js?v=29');
+const cloud = await import('../js/cloud.js?v=29');
 await store.init();
 test.after(() => server.close());
 
