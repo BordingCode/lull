@@ -6,7 +6,7 @@
 // fully evicts the app, the reminder waits until you open it again. The in-app
 // countdown is always correct regardless.
 
-import { MIN, clock } from './util.js?v=30';
+import { MIN, clock } from './util.js?v=31';
 
 let timers = [];
 const LEAD_MIN = 10;

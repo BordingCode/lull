@@ -1,19 +1,19 @@
 // ===== Lull — app shell, screens and wiring =====
-import * as store from './store.js?v=30';
-import * as sheets from './sheets.js?v=30';
-import * as sounds from './sounds.js?v=30';
-import * as notify from './notify.js?v=30';
-import * as cloud from './cloud.js?v=30';
-import * as monitor from './monitor.js?v=30';
-import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=30';
-import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=30';
-import { band, ageDays, BANDS } from './science.js?v=30';
-import { trend } from './stats.js?v=30';
-import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=30';
-import * as growth from './growth.js?v=30';
-import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=30';
-import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=30';
-import { looksLikeEmail } from './vault.js?v=30';
+import * as store from './store.js?v=31';
+import * as sheets from './sheets.js?v=31';
+import * as sounds from './sounds.js?v=31';
+import * as notify from './notify.js?v=31';
+import * as cloud from './cloud.js?v=31';
+import * as monitor from './monitor.js?v=31';
+import { AGES, TOPICS, GROUPS, CHECKED } from './guide.js?v=31';
+import { predict, ongoingSleep, isNightSleep, observedWindows, missedSleep, overdueSleep } from './predict.js?v=31';
+import { band, ageDays, BANDS } from './science.js?v=31';
+import { trend } from './stats.js?v=31';
+import { index, babyDay, currentDate, previousFor, lastBabyDays, averages, nextDate, prevDate } from './days.js?v=31';
+import * as growth from './growth.js?v=31';
+import { timeline, axis, dayDial, meter, columns, trendBars, growthChart, esc } from './charts.js?v=31';
+import { MIN, HOUR, DAY, clock, dur, relative, startOfDay, median, clamp } from './util.js?v=31';
+import { looksLikeEmail } from './vault.js?v=31';
 
 const $ = (sel) => document.querySelector(sel);
 let tab = 'home';
@@ -189,7 +189,7 @@ function feedBar(evs, now) {
   }
   const last = [...evs].reverse().find(e => e.type === 'feed' && e.kind === 'breast' && e.side);
   return `<div class="feedbar">
-    <div class="t">🤱 Breastfeed${last ? `<small>Last: ${last.side} · ${relative(last.end || last.start, now)}</small>` : ''}</div>
+    <div class="t">🤱 Breastfeed${last && now - (last.end || last.start) < DAY ? `<small>Last: ${last.side} · ${relative(last.end || last.start, now)}</small>` : ''}</div>
     <button data-feed-start="left">Left</button>
     <button data-feed-start="right">Right</button>
   </div>`;
