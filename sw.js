@@ -1,7 +1,7 @@
 // ===== Lull service worker =====
 // Bump CACHE (and the ?v= numbers in index.html) whenever a shell file changes,
 // or phones keep serving the old app.
-const CACHE = 'lull-v32';
+const CACHE = 'lull-v33';
 const SHELL = [
   './', './index.html',
   './css/style.css?v=32',
